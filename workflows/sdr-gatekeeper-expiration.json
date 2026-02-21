@@ -1,0 +1,190 @@
+{
+  "name": "SDR Gatekeeper - Expiração de Conversas",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */30 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Cron - A cada 30min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE conversations\nSET status = 'expired'\nWHERE status = 'active'\n  AND last_message_at < NOW() - INTERVAL '4 hours'\nRETURNING id, remote_jid, push_name, message_count, last_message_at;",
+        "options": {}
+      },
+      "id": "expire-conversations",
+      "name": "Supabase - Expira Conversas",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [480, 300],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log conversas expiradas e registra eventos\nconst items = $input.all();\n\nif (!items || items.length === 0 || !items[0].json.id) {\n  return [{ json: { expired_count: 0 } }];\n}\n\nconst results = items.map(item => ({\n  json: {\n    conversationId: item.json.id,\n    remoteJid: item.json.remote_jid,\n    pushName: item.json.push_name,\n    messageCount: item.json.message_count,\n    lastMessageAt: item.json.last_message_at\n  }\n}));\n\nreturn results;"
+      },
+      "id": "process-expired",
+      "name": "Processa Expiradas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO conversation_events (conversation_id, event_type, event_data)\nVALUES (\n  '{{ $json.conversationId }}',\n  'expired',\n  '{\"message_count\": {{ $json.messageCount }}, \"last_message_at\": \"{{ $json.lastMessageAt }}\"}'::jsonb\n);",
+        "options": {}
+      },
+      "id": "save-expired-event",
+      "name": "Supabase - Evento Expiração",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [930, 300],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Detecta conversas que ficaram sem resposta (stalled)\n-- Atendente mandou msg, nós respondemos, mas atendente não respondeu em 2h\nUPDATE conversations\nSET status = 'stalled'\nWHERE status = 'active'\n  AND last_message_at < NOW() - INTERVAL '2 hours'\n  AND last_message_at IS NOT NULL\nRETURNING id, remote_jid, push_name;",
+        "options": {}
+      },
+      "id": "detect-stalled",
+      "name": "Supabase - Detecta Stalled",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [480, 520],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nif (!items || items.length === 0 || !items[0].json.id) {\n  return [{ json: { stalled_count: 0 } }];\n}\n\nreturn items.map(item => ({\n  json: {\n    conversationId: item.json.id,\n    eventType: 'stalled_detected',\n    eventData: JSON.stringify({ remote_jid: item.json.remote_jid })\n  }\n}));"
+      },
+      "id": "process-stalled",
+      "name": "Processa Stalled",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 520]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO conversation_events (conversation_id, event_type, event_data)\nVALUES (\n  '{{ $json.conversationId }}',\n  '{{ $json.eventType }}',\n  '{{ $json.eventData }}'::jsonb\n);",
+        "options": {}
+      },
+      "id": "save-stalled-event",
+      "name": "Supabase - Evento Stalled",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [930, 520],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase PostgreSQL"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Cron - A cada 30min": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Expira Conversas",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase - Detecta Stalled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Expira Conversas": {
+      "main": [
+        [
+          {
+            "node": "Processa Expiradas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Processa Expiradas": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Evento Expiração",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Detecta Stalled": {
+      "main": [
+        [
+          {
+            "node": "Processa Stalled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Processa Stalled": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Evento Stalled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "tags": [
+    {
+      "name": "SDR",
+      "id": "1"
+    },
+    {
+      "name": "Maintenance",
+      "id": "4"
+    }
+  ]
+}
