@@ -71,7 +71,9 @@
           "id": "SUPABASE_CREDENTIALS_ID",
           "name": "Supabase PostgreSQL"
         }
-      }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
     },
     {
       "parameters": {
