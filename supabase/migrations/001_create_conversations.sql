@@ -11,7 +11,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Sessão de conversa do gatekeeper com atendente
 -- ============================================
 CREATE TABLE IF NOT EXISTS gk_conversations (
-    id UUID PRIMARY KEY DEFAULT uuid_ossp.uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
     -- Identificação do contato (WhatsApp)
     remote_jid VARCHAR(50) NOT NULL,
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS gk_conversations (
 -- Histórico de mensagens do gatekeeper
 -- ============================================
 CREATE TABLE IF NOT EXISTS gk_messages (
-    id UUID PRIMARY KEY DEFAULT uuid_ossp.uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     conversation_id UUID NOT NULL REFERENCES gk_conversations(id) ON DELETE CASCADE,
 
     direction VARCHAR(10) NOT NULL CHECK (direction IN ('inbound', 'outbound')),
@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS gk_messages (
 -- Log de eventos do gatekeeper
 -- ============================================
 CREATE TABLE IF NOT EXISTS gk_events (
-    id UUID PRIMARY KEY DEFAULT uuid_ossp.uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     conversation_id UUID NOT NULL REFERENCES gk_conversations(id) ON DELETE CASCADE,
 
     event_type VARCHAR(50) NOT NULL
