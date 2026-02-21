@@ -21,7 +21,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE conversations\nSET status = 'expired'\nWHERE status = 'active'\n  AND last_message_at < NOW() - INTERVAL '4 hours'\nRETURNING id, remote_jid, push_name, message_count, last_message_at;",
+        "query": "UPDATE gk_conversations\nSET status = 'expired'\nWHERE status = 'active'\n  AND last_message_at < NOW() - INTERVAL '4 hours'\nRETURNING id, remote_jid, push_name, message_count, last_message_at;",
         "options": {}
       },
       "id": "expire-conversations",
@@ -49,7 +49,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO conversation_events (conversation_id, event_type, event_data)\nVALUES (\n  '{{ $json.conversationId }}',\n  'expired',\n  '{\"message_count\": {{ $json.messageCount }}, \"last_message_at\": \"{{ $json.lastMessageAt }}\"}'::jsonb\n);",
+        "query": "INSERT INTO gk_events (conversation_id, event_type, event_data)\nVALUES (\n  '{{ $json.conversationId }}',\n  'expired',\n  '{\"message_count\": {{ $json.messageCount }}, \"last_message_at\": \"{{ $json.lastMessageAt }}\"}'::jsonb\n);",
         "options": {}
       },
       "id": "save-expired-event",
@@ -67,7 +67,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "-- Detecta conversas que ficaram sem resposta (stalled)\n-- Atendente mandou msg, nós respondemos, mas atendente não respondeu em 2h\nUPDATE conversations\nSET status = 'stalled'\nWHERE status = 'active'\n  AND last_message_at < NOW() - INTERVAL '2 hours'\n  AND last_message_at IS NOT NULL\nRETURNING id, remote_jid, push_name;",
+        "query": "-- Detecta conversas que ficaram sem resposta (stalled)\n-- Atendente mandou msg, nós respondemos, mas atendente não respondeu em 2h\nUPDATE gk_conversations\nSET status = 'stalled'\nWHERE status = 'active'\n  AND last_message_at < NOW() - INTERVAL '2 hours'\n  AND last_message_at IS NOT NULL\nRETURNING id, remote_jid, push_name;",
         "options": {}
       },
       "id": "detect-stalled",
@@ -95,7 +95,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO conversation_events (conversation_id, event_type, event_data)\nVALUES (\n  '{{ $json.conversationId }}',\n  '{{ $json.eventType }}',\n  '{{ $json.eventData }}'::jsonb\n);",
+        "query": "INSERT INTO gk_events (conversation_id, event_type, event_data)\nVALUES (\n  '{{ $json.conversationId }}',\n  '{{ $json.eventType }}',\n  '{{ $json.eventData }}'::jsonb\n);",
         "options": {}
       },
       "id": "save-stalled-event",
