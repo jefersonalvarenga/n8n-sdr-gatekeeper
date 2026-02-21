@@ -58,7 +58,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT id, status, message_count, fastapi_session_id, clinic_name\nFROM conversations\nWHERE remote_jid = '{{ $json.remoteJid }}'\n  AND status IN ('active', 'stalled')\nORDER BY created_at DESC\nLIMIT 1;",
+        "query": "SELECT id, status, message_count, fastapi_session_id, clinic_name\nFROM gk_conversations\nWHERE remote_jid = '{{ $json.remoteJid }}'\n  AND status IN ('active', 'stalled')\nORDER BY created_at DESC\nLIMIT 1;",
         "options": {}
       },
       "id": "lookup-conversation",
@@ -71,7 +71,9 @@
           "id": "SUPABASE_CREDENTIALS_ID",
           "name": "Supabase PostgreSQL"
         }
-      }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -116,7 +118,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO conversations (remote_jid, push_name, status, evolution_instance, message_count, last_message_at)\nVALUES (\n  '{{ $json.remoteJid }}',\n  '{{ $json.pushName }}',\n  'active',\n  '{{ $json.instanceName }}',\n  1,\n  NOW()\n)\nRETURNING id, status;",
+        "query": "INSERT INTO gk_conversations (remote_jid, push_name, status, evolution_instance, message_count, last_message_at)\nVALUES (\n  '{{ $json.remoteJid }}',\n  '{{ $json.pushName }}',\n  'active',\n  '{{ $json.instanceName }}',\n  1,\n  NOW()\n)\nRETURNING id, status;",
         "options": {}
       },
       "id": "create-conversation",
@@ -134,7 +136,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE conversations\nSET message_count = message_count + 1,\n    last_message_at = NOW(),\n    status = CASE WHEN status = 'stalled' THEN 'active' ELSE status END,\n    expires_at = NOW() + INTERVAL '4 hours'\nWHERE id = '{{ $json.conversationId }}'\nRETURNING id, status;",
+        "query": "UPDATE gk_conversations\nSET message_count = message_count + 1,\n    last_message_at = NOW(),\n    status = CASE WHEN status = 'stalled' THEN 'active' ELSE status END,\n    expires_at = NOW() + INTERVAL '4 hours'\nWHERE id = '{{ $json.conversationId }}'\nRETURNING id, status;",
         "options": {}
       },
       "id": "update-conversation",
@@ -162,7 +164,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO messages (conversation_id, direction, content, message_type, wamid)\nVALUES (\n  '{{ $json.conversationId }}',\n  'inbound',\n  {{ $json.messageContent.toJSON() }},\n  '{{ $json.messageType }}',\n  '{{ $json.wamid }}'\n);",
+        "query": "INSERT INTO gk_messages (conversation_id, direction, content, message_type, wamid)\nVALUES (\n  '{{ $json.conversationId }}',\n  'inbound',\n  {{ $json.messageContent.toJSON() }},\n  '{{ $json.messageType }}',\n  '{{ $json.wamid }}'\n);",
         "options": {}
       },
       "id": "save-inbound-message",
@@ -228,7 +230,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "-- Atualiza conversa com dados retornados pelo FastAPI\nUPDATE conversations\nSET\n  fastapi_session_id = COALESCE('{{ $json.sessionId }}', fastapi_session_id),\n  status = '{{ $json.conversationStatus }}',\n  decisor_name = {{ $json.decisorInfo ? \"'\" + ($json.decisorInfo.name || '') + \"'\" : 'decisor_name' }},\n  decisor_phone = {{ $json.decisorInfo ? \"'\" + ($json.decisorInfo.phone || '') + \"'\" : 'decisor_phone' }},\n  decisor_email = {{ $json.decisorInfo ? \"'\" + ($json.decisorInfo.email || '') + \"'\" : 'decisor_email' }},\n  decisor_role = {{ $json.decisorInfo ? \"'\" + ($json.decisorInfo.role || '') + \"'\" : 'decisor_role' }}\nWHERE id = '{{ $json.conversationId }}';",
+        "query": "-- Atualiza conversa com dados retornados pelo FastAPI\nUPDATE gk_conversations\nSET\n  fastapi_session_id = COALESCE('{{ $json.sessionId }}', fastapi_session_id),\n  status = '{{ $json.conversationStatus }}',\n  decisor_name = {{ $json.decisorInfo ? \"'\" + ($json.decisorInfo.name || '') + \"'\" : 'decisor_name' }},\n  decisor_phone = {{ $json.decisorInfo ? \"'\" + ($json.decisorInfo.phone || '') + \"'\" : 'decisor_phone' }},\n  decisor_email = {{ $json.decisorInfo ? \"'\" + ($json.decisorInfo.email || '') + \"'\" : 'decisor_email' }},\n  decisor_role = {{ $json.decisorInfo ? \"'\" + ($json.decisorInfo.role || '') + \"'\" : 'decisor_role' }}\nWHERE id = '{{ $json.conversationId }}';",
         "options": {}
       },
       "id": "update-conversation-status",
@@ -246,7 +248,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO messages (conversation_id, direction, content, message_type, agent_intent, agent_confidence)\nVALUES (\n  '{{ $json.conversationId }}',\n  'outbound',\n  {{ $json.reply.toJSON() }},\n  'text',\n  '{{ $json.intent }}',\n  {{ $json.confidence }}\n);",
+        "query": "INSERT INTO gk_messages (conversation_id, direction, content, message_type, agent_intent, agent_confidence)\nVALUES (\n  '{{ $json.conversationId }}',\n  'outbound',\n  {{ $json.reply.toJSON() }},\n  'text',\n  '{{ $json.intent }}',\n  {{ $json.confidence }}\n);",
         "options": {}
       },
       "id": "save-outbound-message",
@@ -379,7 +381,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO conversation_events (conversation_id, event_type, event_data)\nVALUES (\n  '{{ $json.conversationId }}',\n  '{{ $json.eventType }}',\n  '{{ $json.eventData }}'::jsonb\n);",
+        "query": "INSERT INTO gk_events (conversation_id, event_type, event_data)\nVALUES (\n  '{{ $json.conversationId }}',\n  '{{ $json.eventType }}',\n  '{{ $json.eventData }}'::jsonb\n);",
         "options": {}
       },
       "id": "save-event",

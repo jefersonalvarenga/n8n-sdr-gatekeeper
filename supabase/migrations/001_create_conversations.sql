@@ -1,45 +1,45 @@
 -- ============================================
--- EasyScale SDR Closer - Schema de Conversas
--- Migration 001: Tabelas principais
+-- EasyScale SDR Gatekeeper - Schema
+-- Migration 001: Tabelas com prefixo gk_
+-- Evita conflito com: conversations, messages, leads (já existentes)
 -- ============================================
 
--- Extensão para UUID
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================
--- TABELA: conversations
--- Representa uma sessão de conversa com um atendente
+-- TABELA: gk_conversations
+-- Sessão de conversa do gatekeeper com atendente
 -- ============================================
-CREATE TABLE IF NOT EXISTS conversations (
+CREATE TABLE IF NOT EXISTS gk_conversations (
     id UUID PRIMARY KEY DEFAULT uuid_ossp.uuid_generate_v4(),
 
     -- Identificação do contato (WhatsApp)
-    remote_jid VARCHAR(50) NOT NULL,          -- número do atendente (5511999999999@s.whatsapp.net)
-    push_name VARCHAR(255),                    -- nome do atendente no WhatsApp
+    remote_jid VARCHAR(50) NOT NULL,
+    push_name VARCHAR(255),
 
     -- Contexto da prospecção
-    clinic_name VARCHAR(255),                  -- nome da clínica sendo prospectada
+    clinic_name VARCHAR(255),
 
     -- Estado da conversa
     status VARCHAR(30) NOT NULL DEFAULT 'active'
         CHECK (status IN (
-            'active',              -- conversa em andamento
-            'decisor_captured',    -- decisor identificado com sucesso
-            'stalled',             -- atendente parou de responder
-            'rejected',            -- atendente recusou/bloqueou
-            'handed_off',          -- passado pra closer
-            'expired'              -- timeout (sem resposta por X horas)
+            'active',
+            'decisor_captured',
+            'stalled',
+            'rejected',
+            'handed_off',
+            'expired'
         )),
 
     -- Dados do decisor (preenchidos quando capturados)
     decisor_name VARCHAR(255),
     decisor_phone VARCHAR(50),
     decisor_email VARCHAR(255),
-    decisor_role VARCHAR(100),                 -- cargo do decisor
+    decisor_role VARCHAR(100),
 
     -- Metadata
-    evolution_instance VARCHAR(100),           -- instância da Evolution API
-    fastapi_session_id VARCHAR(255),           -- ID da sessão no FastAPI (se houver)
+    evolution_instance VARCHAR(100),
+    fastapi_session_id VARCHAR(255),
 
     -- Contadores
     message_count INTEGER DEFAULT 0,
@@ -48,41 +48,38 @@ CREATE TABLE IF NOT EXISTS conversations (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_message_at TIMESTAMPTZ,
-    expires_at TIMESTAMPTZ                     -- quando a conversa expira por inatividade
+    expires_at TIMESTAMPTZ
 );
 
 -- ============================================
--- TABELA: messages
--- Histórico de mensagens trocadas
+-- TABELA: gk_messages
+-- Histórico de mensagens do gatekeeper
 -- ============================================
-CREATE TABLE IF NOT EXISTS messages (
+CREATE TABLE IF NOT EXISTS gk_messages (
     id UUID PRIMARY KEY DEFAULT uuid_ossp.uuid_generate_v4(),
-    conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    conversation_id UUID NOT NULL REFERENCES gk_conversations(id) ON DELETE CASCADE,
 
-    -- Direção e conteúdo
     direction VARCHAR(10) NOT NULL CHECK (direction IN ('inbound', 'outbound')),
     content TEXT NOT NULL,
     message_type VARCHAR(20) DEFAULT 'text'
         CHECK (message_type IN ('text', 'image', 'audio', 'document', 'reaction')),
 
-    -- IDs externos
-    wamid VARCHAR(255),                        -- WhatsApp Message ID (da Evolution API)
+    wamid VARCHAR(255),
 
     -- Metadata do agente (para outbound)
-    agent_intent VARCHAR(50),                  -- intenção detectada pelo agente
-    agent_confidence DECIMAL(3,2),             -- confiança da classificação (0.00 a 1.00)
+    agent_intent VARCHAR(50),
+    agent_confidence DECIMAL(3,2),
 
-    -- Timestamps
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ============================================
--- TABELA: conversation_events
--- Log de eventos importantes da conversa
+-- TABELA: gk_events
+-- Log de eventos do gatekeeper
 -- ============================================
-CREATE TABLE IF NOT EXISTS conversation_events (
+CREATE TABLE IF NOT EXISTS gk_events (
     id UUID PRIMARY KEY DEFAULT uuid_ossp.uuid_generate_v4(),
-    conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    conversation_id UUID NOT NULL REFERENCES gk_conversations(id) ON DELETE CASCADE,
 
     event_type VARCHAR(50) NOT NULL
         CHECK (event_type IN (
@@ -96,7 +93,7 @@ CREATE TABLE IF NOT EXISTS conversation_events (
             'error'
         )),
 
-    event_data JSONB,                          -- dados adicionais do evento
+    event_data JSONB,
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -104,18 +101,18 @@ CREATE TABLE IF NOT EXISTS conversation_events (
 -- ============================================
 -- INDEXES
 -- ============================================
-CREATE INDEX idx_conversations_remote_jid ON conversations(remote_jid);
-CREATE INDEX idx_conversations_status ON conversations(status);
-CREATE INDEX idx_conversations_last_message ON conversations(last_message_at);
-CREATE INDEX idx_conversations_expires ON conversations(expires_at) WHERE status = 'active';
-CREATE INDEX idx_messages_conversation ON messages(conversation_id, created_at);
-CREATE INDEX idx_messages_wamid ON messages(wamid);
-CREATE INDEX idx_events_conversation ON conversation_events(conversation_id, created_at);
+CREATE INDEX idx_gk_conversations_remote_jid ON gk_conversations(remote_jid);
+CREATE INDEX idx_gk_conversations_status ON gk_conversations(status);
+CREATE INDEX idx_gk_conversations_last_message ON gk_conversations(last_message_at);
+CREATE INDEX idx_gk_conversations_expires ON gk_conversations(expires_at) WHERE status = 'active';
+CREATE INDEX idx_gk_messages_conversation ON gk_messages(conversation_id, created_at);
+CREATE INDEX idx_gk_messages_wamid ON gk_messages(wamid);
+CREATE INDEX idx_gk_events_conversation ON gk_events(conversation_id, created_at);
 
 -- ============================================
--- TRIGGER: Atualiza updated_at automaticamente
+-- TRIGGER: updated_at automático
 -- ============================================
-CREATE OR REPLACE FUNCTION update_updated_at()
+CREATE OR REPLACE FUNCTION gk_update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = NOW();
@@ -123,15 +120,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trigger_conversations_updated_at
-    BEFORE UPDATE ON conversations
+CREATE TRIGGER trigger_gk_conversations_updated_at
+    BEFORE UPDATE ON gk_conversations
     FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at();
-
--- ============================================
--- RLS (Row Level Security) - Supabase
--- Habilitar se for usar via Supabase client
--- ============================================
--- ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE conversation_events ENABLE ROW LEVEL SECURITY;
+    EXECUTE FUNCTION gk_update_updated_at();
