@@ -598,7 +598,8 @@
     "executionOrder": "v1",
     "saveManualExecutions": true,
     "callerPolicy": "workflowsFromSameOwner",
-    "errorWorkflow": ""
+    "errorWorkflow": "",
+    "saveExecutionProgress": true
   },
   "staticData": null,
   "tags": [
