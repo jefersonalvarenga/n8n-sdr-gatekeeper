@@ -58,7 +58,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT id, status, message_count, fastapi_session_id, clinic_name\nFROM gk_conversations\nWHERE remote_jid = '{{ $json.remoteJid }}'\n  AND status IN ('active', 'stalled')\nORDER BY created_at DESC\nLIMIT 1;",
+        "query": "SELECT\n  COALESCE(c.id::text, 'none') AS id,\n  COALESCE(c.status, 'new') AS status,\n  COALESCE(c.message_count, 0) AS message_count,\n  COALESCE(c.fastapi_session_id, '') AS fastapi_session_id,\n  COALESCE(c.clinic_name, '') AS clinic_name,\n  CASE WHEN c.id IS NULL THEN true ELSE false END AS is_new\nFROM (SELECT 1) AS dummy\nLEFT JOIN gk_conversations c\n  ON c.remote_jid = '{{ $json.remoteJid }}'\n  AND c.status IN ('active', 'stalled')\nORDER BY c.created_at DESC NULLS LAST\nLIMIT 1;",
         "options": {}
       },
       "id": "lookup-conversation",
@@ -73,11 +73,12 @@
         }
       },
       "onError": "continueRegularOutput",
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "executeOnce": false
     },
     {
       "parameters": {
-        "jsCode": "// Merge dados da mensagem com dados da conversa existente\nconst message = $('Filtro - Mensagem Válida?').first().json;\nconst dbResults = $input.first().json;\n\nlet conversationId = null;\nlet isNewConversation = true;\nlet fastapiSessionId = null;\nlet currentStatus = null;\n\n// Verifica se existe conversa ativa\nif (dbResults && dbResults.id) {\n  conversationId = dbResults.id;\n  isNewConversation = false;\n  fastapiSessionId = dbResults.fastapi_session_id;\n  currentStatus = dbResults.status;\n}\n\nreturn [{\n  json: {\n    ...message,\n    conversationId,\n    isNewConversation,\n    fastapiSessionId,\n    currentStatus\n  }\n}];"
+        "jsCode": "// Merge dados da mensagem com dados da conversa existente\n// A query sempre retorna 1 row (LEFT JOIN com dummy)\nconst message = $('Filtro - Mensagem Válida?').first().json;\nconst dbResults = $input.first().json;\n\nconst isNew = dbResults.is_new === true || dbResults.id === 'none';\n\nreturn [{\n  json: {\n    ...message,\n    conversationId: isNew ? null : dbResults.id,\n    isNewConversation: isNew,\n    fastapiSessionId: isNew ? null : (dbResults.fastapi_session_id || null),\n    currentStatus: isNew ? null : dbResults.status\n  }\n}];"
       },
       "id": "merge-context",
       "name": "Merge - Contexto da Conversa",
