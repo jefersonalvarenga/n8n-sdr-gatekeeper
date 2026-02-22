@@ -123,7 +123,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ============================================\n// Estratégia: UPDATE se existe, CREATE se não existe\n// UPDATE preserva histórico de execuções\n// IMPORTANTE: fechar o workflow no editor antes do deploy\n// ============================================\n\nconst prepData = $('Prepara Dados do Workflow').first().json;\nconst workflowName = prepData.workflowName;\nconst workflowData = prepData.workflowData;\n\nconst apiResponse = $input.first().json;\nconst existingWorkflows = apiResponse.data || apiResponse || [];\n\nlet existingId = null;\nconst workflows = Array.isArray(existingWorkflows) ? existingWorkflows : [];\n\nfor (const wf of workflows) {\n  if (wf.name === workflowName) {\n    existingId = wf.id;\n    break;\n  }\n}\n\n// Remove campos read-only que a API rejeita\nconst cleanWorkflow = { ...workflowData };\ndelete cleanWorkflow.id;\ndelete cleanWorkflow.createdAt;\ndelete cleanWorkflow.updatedAt;\ndelete cleanWorkflow.active;\ndelete cleanWorkflow.versionId;\ndelete cleanWorkflow.tags;\ndelete cleanWorkflow.staticData;\ndelete cleanWorkflow.meta;\ndelete cleanWorkflow.pinData;\n\nreturn [{\n  json: {\n    action: existingId ? 'update' : 'create',\n    existingId,\n    workflowName,\n    workflowPayload: cleanWorkflow,\n    filePath: prepData.filePath,\n    pusher: prepData.pusher,\n    commitMessage: prepData.commitMessage\n  }\n}];"
+        "jsCode": "// ============================================\n// Estratégia:\n//   UPDATE: deactivate → PUT → activate (força publish)\n//   CREATE: POST → activate\n// ============================================\n\nconst prepData = $('Prepara Dados do Workflow').first().json;\nconst workflowName = prepData.workflowName;\nconst workflowData = prepData.workflowData;\n\nconst apiResponse = $input.first().json;\nconst existingWorkflows = apiResponse.data || apiResponse || [];\n\nlet existingId = null;\nconst workflows = Array.isArray(existingWorkflows) ? existingWorkflows : [];\n\nfor (const wf of workflows) {\n  if (wf.name === workflowName) {\n    existingId = wf.id;\n    break;\n  }\n}\n\nconst cleanWorkflow = { ...workflowData };\ndelete cleanWorkflow.id;\ndelete cleanWorkflow.createdAt;\ndelete cleanWorkflow.updatedAt;\ndelete cleanWorkflow.active;\ndelete cleanWorkflow.versionId;\ndelete cleanWorkflow.tags;\ndelete cleanWorkflow.staticData;\ndelete cleanWorkflow.meta;\ndelete cleanWorkflow.pinData;\n\nreturn [{\n  json: {\n    action: existingId ? 'update' : 'create',\n    existingId,\n    workflowName,\n    workflowPayload: cleanWorkflow,\n    filePath: prepData.filePath,\n    pusher: prepData.pusher,\n    commitMessage: prepData.commitMessage\n  }\n}];"
       },
       "id": "decide-action",
       "name": "Prepara Deploy",
@@ -162,6 +162,39 @@
     },
     {
       "parameters": {
+        "method": "POST",
+        "url": "=https://n8n.easyscale.co/api/v1/workflows/{{ $json.existingId }}/deactivate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-KEY",
+              "value": "={{ $env.N8N_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "api-deactivate-workflow",
+      "name": "n8n API - Deactivate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2060, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Recupera contexto após deactivate\nconst context = $('Prepara Deploy').first().json;\nreturn [{ json: context }];"
+      },
+      "id": "restore-after-deactivate",
+      "name": "Restaura Contexto",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2280, 200]
+    },
+    {
+      "parameters": {
         "method": "PUT",
         "url": "=https://n8n.easyscale.co/api/v1/workflows/{{ $json.existingId }}",
         "sendHeaders": true,
@@ -193,7 +226,7 @@
       "name": "n8n API - Update Workflow",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2060, 200]
+      "position": [2500, 200]
     },
     {
       "parameters": {
@@ -228,7 +261,7 @@
       "name": "n8n API - Create Workflow",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2060, 420]
+      "position": [2500, 420]
     },
     {
       "parameters": {
@@ -238,7 +271,7 @@
       "name": "Resultado do Deploy",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2300, 300]
+      "position": [2720, 300]
     },
     {
       "parameters": {
@@ -266,12 +299,12 @@
       "name": "n8n API - Activate Workflow",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2530, 300]
+      "position": [2940, 300]
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ status: 'deployed_and_activated', workflow: $('Resultado do Deploy').first().json.workflowName, action: $('Resultado do Deploy').first().json.action, id: $('Resultado do Deploy').first().json.workflowId }) }}",
+        "responseBody": "={{ JSON.stringify({ status: 'deployed_and_published', workflow: $('Resultado do Deploy').first().json.workflowName, action: $('Resultado do Deploy').first().json.action, id: $('Resultado do Deploy').first().json.workflowId }) }}",
         "options": {
           "responseCode": 200
         }
@@ -280,7 +313,7 @@
       "name": "Respond - Deploy OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [2760, 300]
+      "position": [3160, 300]
     },
     {
       "parameters": {
@@ -386,7 +419,7 @@
       "main": [
         [
           {
-            "node": "n8n API - Update Workflow",
+            "node": "n8n API - Deactivate",
             "type": "main",
             "index": 0
           }
@@ -394,6 +427,28 @@
         [
           {
             "node": "n8n API - Create Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n8n API - Deactivate": {
+      "main": [
+        [
+          {
+            "node": "Restaura Contexto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restaura Contexto": {
+      "main": [
+        [
+          {
+            "node": "n8n API - Update Workflow",
             "type": "main",
             "index": 0
           }
