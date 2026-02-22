@@ -599,7 +599,8 @@
     "saveManualExecutions": true,
     "callerPolicy": "workflowsFromSameOwner",
     "errorWorkflow": "",
-    "saveExecutionProgress": true
+    "saveExecutionProgress": true,
+    "executionTimeout": 120
   },
   "staticData": null,
   "tags": [
