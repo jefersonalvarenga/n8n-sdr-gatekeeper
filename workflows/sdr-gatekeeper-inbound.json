@@ -58,7 +58,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n  COALESCE(c.id::text, 'none') AS id,\n  COALESCE(c.status, 'new') AS status,\n  COALESCE(c.message_count, 0) AS message_count,\n  COALESCE(c.fastapi_session_id, '') AS fastapi_session_id,\n  COALESCE(c.clinic_name, '') AS clinic_name,\n  CASE WHEN c.id IS NULL THEN true ELSE false END AS is_new\nFROM (SELECT 1) AS dummy\nLEFT JOIN gk_conversations c\n  ON c.remote_jid = '{{ $json.remoteJid }}'\n  AND c.status IN ('active', 'stalled')\nORDER BY c.created_at DESC NULLS LAST\nLIMIT 1;",
+        "query": "SELECT\n  COALESCE(c.id::text, 'none') AS id,\n  COALESCE(c.status, 'new') AS status,\n  COALESCE(c.message_count, 0) AS message_count,\n  COALESCE(c.fastapi_session_id, '') AS fastapi_session_id,\n  COALESCE(c.clinic_name, '') AS clinic_name,\n  COALESCE(c.remote_jid, '') AS clinic_phone,\n  CASE WHEN c.id IS NULL THEN true ELSE false END AS is_new\nFROM (SELECT 1) AS dummy\nLEFT JOIN gk_conversations c\n  ON c.remote_jid = '{{ $json.remoteJid }}'\n  AND c.status IN ('active', 'stalled')\nORDER BY c.created_at DESC NULLS LAST\nLIMIT 1;",
         "options": {}
       },
       "id": "lookup-conversation",
@@ -78,7 +78,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Merge dados da mensagem com dados da conversa existente\n// A query sempre retorna 1 row (LEFT JOIN com dummy)\nconst message = $('Filtro - Mensagem Válida?').first().json;\nconst dbResults = $input.first().json;\n\nconst isNew = dbResults.is_new === true || dbResults.id === 'none';\n\nreturn [{\n  json: {\n    ...message,\n    conversationId: isNew ? null : dbResults.id,\n    isNewConversation: isNew,\n    fastapiSessionId: isNew ? null : (dbResults.fastapi_session_id || null),\n    currentStatus: isNew ? null : dbResults.status\n  }\n}];"
+        "jsCode": "// Merge dados da mensagem com dados da conversa existente\n// A query sempre retorna 1 row (LEFT JOIN com dummy)\nconst message = $('Filtro - Mensagem Válida?').first().json;\nconst dbResults = $input.first().json;\n\nconst isNew = dbResults.is_new === true || dbResults.id === 'none';\n\nreturn [{\n  json: {\n    ...message,\n    conversationId: isNew ? null : dbResults.id,\n    isNewConversation: isNew,\n    fastapiSessionId: isNew ? null : (dbResults.fastapi_session_id || null),\n    currentStatus: isNew ? null : dbResults.status,\n    clinicName: isNew ? '' : (dbResults.clinic_name || ''),\n    clinicPhone: isNew ? message.phoneNumber : (dbResults.clinic_phone || message.phoneNumber)\n  }\n}];"
       },
       "id": "merge-context",
       "name": "Merge - Contexto da Conversa",
@@ -154,10 +154,10 @@
     },
     {
       "parameters": {
-        "jsCode": "// Prepara payload unificado para o FastAPI, independente de ser nova ou existente\nconst messageData = $('Merge - Contexto da Conversa').first().json;\nconst dbResult = $input.first().json;\n\nconst conversationId = dbResult.id || messageData.conversationId;\n\nreturn [{\n  json: {\n    conversationId,\n    remoteJid: messageData.remoteJid,\n    pushName: messageData.pushName,\n    messageContent: messageData.messageContent,\n    messageType: messageData.messageType,\n    phoneNumber: messageData.phoneNumber,\n    wamid: messageData.wamid,\n    isNewConversation: messageData.isNewConversation,\n    fastapiSessionId: messageData.fastapiSessionId,\n    instanceName: messageData.instanceName\n  }\n}];"
+        "jsCode": "// Prepara contexto unificado após criar/atualizar conversa\nconst messageData = $('Merge - Contexto da Conversa').first().json;\nconst dbResult = $input.first().json;\n\nconst conversationId = dbResult.id || messageData.conversationId;\n\nreturn [{\n  json: {\n    conversationId,\n    remoteJid: messageData.remoteJid,\n    pushName: messageData.pushName,\n    messageContent: messageData.messageContent,\n    messageType: messageData.messageType,\n    phoneNumber: messageData.phoneNumber,\n    wamid: messageData.wamid,\n    isNewConversation: messageData.isNewConversation,\n    fastapiSessionId: messageData.fastapiSessionId,\n    instanceName: messageData.instanceName,\n    clinicName: messageData.clinicName,\n    clinicPhone: messageData.clinicPhone\n  }\n}];"
       },
-      "id": "prepare-fastapi-payload",
-      "name": "Prepara Payload FastAPI",
+      "id": "prepare-context",
+      "name": "Prepara Contexto Unificado",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [1860, 300]
@@ -182,13 +182,42 @@
     },
     {
       "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  direction,\n  content,\n  created_at\nFROM gk_messages\nWHERE conversation_id = '{{ $json.conversationId }}'\nORDER BY created_at ASC\nLIMIT 50;",
+        "options": {}
+      },
+      "id": "fetch-message-history",
+      "name": "Supabase - Busca Histórico",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2080, 440],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Monta payload para o FastAPI conforme contrato real\n// Request: { clinic_name, clinic_phone, conversation_history, latest_message }\n// Header: X-API-Key\n// ============================================\n\nconst context = $('Prepara Contexto Unificado').first().json;\nconst historyRows = $('Supabase - Busca Histórico').all();\n\n// Monta conversation_history como array de objetos\n// Formato: [{ role: \"attendant\"|\"agent\", content: \"...\" }]\nconst conversationHistory = historyRows\n  .filter(item => item.json && item.json.content)\n  .map(item => ({\n    role: item.json.direction === 'inbound' ? 'attendant' : 'agent',\n    content: item.json.content\n  }));\n\nreturn [{\n  json: {\n    // Dados para o HTTP Request\n    clinicName: context.clinicName || '',\n    clinicPhone: context.clinicPhone || context.phoneNumber,\n    conversationHistory: conversationHistory,\n    latestMessage: context.messageContent,\n    // Dados preservados para os próximos nodes\n    conversationId: context.conversationId,\n    remoteJid: context.remoteJid,\n    instanceName: context.instanceName,\n    pushName: context.pushName,\n    phoneNumber: context.phoneNumber\n  }\n}];"
+      },
+      "id": "prepare-fastapi-payload",
+      "name": "Prepara Payload FastAPI",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2310, 440]
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "https://ade.easyscale.co/v1/sdr/gatekeeper",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
-              "name": "x-api-key",
+              "name": "X-API-Key",
               "value": "={{ $env.FASTAPI_API_KEY }}"
             },
             {
@@ -199,7 +228,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"conversation_id\": \"{{ $json.conversationId }}\",\n  \"remote_jid\": \"{{ $json.remoteJid }}\",\n  \"sender_name\": \"{{ $json.pushName }}\",\n  \"message\": \"{{ $json.messageContent }}\",\n  \"message_type\": \"{{ $json.messageType }}\",\n  \"phone_number\": \"{{ $json.phoneNumber }}\",\n  \"is_new_conversation\": {{ $json.isNewConversation }},\n  \"session_id\": {{ $json.fastapiSessionId ? '\"' + $json.fastapiSessionId + '\"' : 'null' }}\n}",
+        "jsonBody": "={\n  \"clinic_name\": {{ JSON.stringify($json.clinicName) }},\n  \"clinic_phone\": {{ JSON.stringify($json.clinicPhone) }},\n  \"conversation_history\": {{ JSON.stringify($json.conversationHistory) }},\n  \"latest_message\": {{ JSON.stringify($json.latestMessage) }}\n}",
         "options": {
           "timeout": 30000,
           "response": {
@@ -213,32 +242,32 @@
       "name": "HTTP - FastAPI Gatekeeper",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2080, 440],
+      "position": [2540, 440],
       "retryOnFail": true,
       "maxTries": 2,
       "waitBetweenTries": 2000
     },
     {
       "parameters": {
-        "jsCode": "// Processa resposta do FastAPI\nconst response = $input.first().json;\nconst messageData = $('Prepara Payload FastAPI').first().json;\n\nconst body = response.body || response;\n\n// Resposta esperada do FastAPI:\n// {\n//   \"reply\": \"Mensagem para enviar ao atendente\",\n//   \"session_id\": \"abc-123\",\n//   \"intent\": \"greeting|asking_decisor|decisor_received|objection|...\",\n//   \"confidence\": 0.95,\n//   \"conversation_status\": \"active|decisor_captured|rejected\",\n//   \"decisor_info\": { \"name\": \"...\", \"phone\": \"...\", \"email\": \"...\", \"role\": \"...\" }\n// }\n\nconst reply = body.reply || body.message || '';\nconst sessionId = body.session_id || null;\nconst intent = body.intent || 'unknown';\nconst confidence = body.confidence || 0;\nconst conversationStatus = body.conversation_status || 'active';\nconst decisorInfo = body.decisor_info || null;\n\nreturn [{\n  json: {\n    conversationId: messageData.conversationId,\n    remoteJid: messageData.remoteJid,\n    instanceName: messageData.instanceName,\n    reply,\n    sessionId,\n    intent,\n    confidence,\n    conversationStatus,\n    decisorInfo,\n    hasReply: reply.length > 0\n  }\n}];"
+        "jsCode": "// ============================================\n// Processa resposta do FastAPI - Contrato Real\n// Response: {\n//   response_message: string,\n//   should_send_message: boolean,\n//   conversation_stage: string,\n//   extracted_manager_contact: string|null,\n//   extracted_manager_name: string|null\n// }\n// ============================================\n\nconst response = $input.first().json;\nconst payload = $('Prepara Payload FastAPI').first().json;\n\nconst body = response.body || response;\n\nconst responseMessage = body.response_message || '';\nconst shouldSendMessage = body.should_send_message === true;\nconst conversationStage = body.conversation_stage || 'active';\nconst extractedManagerContact = body.extracted_manager_contact || null;\nconst extractedManagerName = body.extracted_manager_name || null;\n\nreturn [{\n  json: {\n    conversationId: payload.conversationId,\n    remoteJid: payload.remoteJid,\n    instanceName: payload.instanceName,\n    responseMessage,\n    shouldSendMessage,\n    conversationStage,\n    extractedManagerContact,\n    extractedManagerName\n  }\n}];"
       },
       "id": "process-fastapi-response",
       "name": "Processa Resposta FastAPI",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2310, 440]
+      "position": [2770, 440]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "-- Atualiza conversa com dados retornados pelo FastAPI\nUPDATE gk_conversations\nSET\n  fastapi_session_id = COALESCE('{{ $json.sessionId }}', fastapi_session_id),\n  status = '{{ $json.conversationStatus }}',\n  decisor_name = {{ $json.decisorInfo ? \"'\" + ($json.decisorInfo.name || '') + \"'\" : 'decisor_name' }},\n  decisor_phone = {{ $json.decisorInfo ? \"'\" + ($json.decisorInfo.phone || '') + \"'\" : 'decisor_phone' }},\n  decisor_email = {{ $json.decisorInfo ? \"'\" + ($json.decisorInfo.email || '') + \"'\" : 'decisor_email' }},\n  decisor_role = {{ $json.decisorInfo ? \"'\" + ($json.decisorInfo.role || '') + \"'\" : 'decisor_role' }}\nWHERE id = '{{ $json.conversationId }}';",
+        "query": "UPDATE gk_conversations\nSET\n  status = '{{ $json.conversationStage }}',\n  decisor_name = CASE\n    WHEN {{ $json.extractedManagerName ? 'true' : 'false' }} = 'true'\n    THEN $gk${{ $json.extractedManagerName }}$gk$\n    ELSE decisor_name\n  END,\n  decisor_phone = CASE\n    WHEN {{ $json.extractedManagerContact ? 'true' : 'false' }} = 'true'\n    THEN $gk${{ $json.extractedManagerContact }}$gk$\n    ELSE decisor_phone\n  END\nWHERE id = '{{ $json.conversationId }}';",
         "options": {}
       },
       "id": "update-conversation-status",
       "name": "Supabase - Atualiza Status",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [2540, 300],
+      "position": [3010, 300],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -249,14 +278,14 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO gk_messages (conversation_id, direction, content, message_type, agent_intent, agent_confidence)\nVALUES (\n  '{{ $json.conversationId }}',\n  'outbound',\n  $gk${{ $json.reply }}$gk$,\n  'text',\n  '{{ $json.intent }}',\n  {{ $json.confidence }}\n);",
+        "query": "INSERT INTO gk_messages (conversation_id, direction, content, message_type)\nVALUES (\n  '{{ $json.conversationId }}',\n  'outbound',\n  $gk${{ $json.responseMessage }}$gk$,\n  'text'\n);",
         "options": {}
       },
       "id": "save-outbound-message",
       "name": "Supabase - Salva Msg Outbound",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [2540, 500],
+      "position": [3010, 500],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -274,8 +303,8 @@
           },
           "conditions": [
             {
-              "id": "condition-has-reply",
-              "leftValue": "={{ $json.hasReply }}",
+              "id": "condition-should-send",
+              "leftValue": "={{ $json.shouldSendMessage }}",
               "rightValue": true,
               "operator": {
                 "type": "boolean",
@@ -288,11 +317,11 @@
         },
         "options": {}
       },
-      "id": "check-has-reply",
-      "name": "Tem Resposta?",
+      "id": "check-should-send",
+      "name": "Deve Enviar?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [2770, 440]
+      "position": [3240, 440]
     },
     {
       "parameters": {
@@ -313,7 +342,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"number\": \"{{ $json.remoteJid }}\",\n  \"text\": {{ $json.reply.toJSON() }}\n}",
+        "jsonBody": "={\n  \"number\": {{ JSON.stringify($json.remoteJid) }},\n  \"text\": {{ JSON.stringify($json.responseMessage) }}\n}",
         "options": {
           "timeout": 15000
         }
@@ -322,7 +351,7 @@
       "name": "Evolution API - Envia Resposta",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3010, 340],
+      "position": [3470, 340],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 3000
@@ -339,7 +368,7 @@
       "name": "Respond OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [3240, 340]
+      "position": [3700, 340]
     },
     {
       "parameters": {
@@ -353,7 +382,7 @@
       "name": "Respond - Sem Resposta",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [3010, 560]
+      "position": [3470, 560]
     },
     {
       "parameters": {
@@ -371,13 +400,13 @@
     },
     {
       "parameters": {
-        "jsCode": "// Log de evento: decisor capturado\nconst data = $('Processa Resposta FastAPI').first().json;\n\nif (data.conversationStatus === 'decisor_captured' && data.decisorInfo) {\n  return [{\n    json: {\n      conversationId: data.conversationId,\n      eventType: 'decisor_info_received',\n      eventData: JSON.stringify(data.decisorInfo)\n    }\n  }];\n}\n\n// Sem evento especial\nreturn [];"
+        "jsCode": "// Log de evento: decisor/gestor capturado\nconst data = $('Processa Resposta FastAPI').first().json;\n\nif (data.conversationStage === 'decisor_captured' && (data.extractedManagerName || data.extractedManagerContact)) {\n  return [{\n    json: {\n      conversationId: data.conversationId,\n      eventType: 'decisor_info_received',\n      eventData: JSON.stringify({\n        manager_name: data.extractedManagerName,\n        manager_contact: data.extractedManagerContact\n      })\n    }\n  }];\n}\n\n// Sem evento especial\nreturn [];"
       },
       "id": "check-decisor-event",
       "name": "Evento - Decisor Capturado?",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3010, 720]
+      "position": [3470, 720]
     },
     {
       "parameters": {
@@ -389,7 +418,7 @@
       "name": "Supabase - Salva Evento",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [3240, 720],
+      "position": [3700, 720],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -483,7 +512,7 @@
       "main": [
         [
           {
-            "node": "Prepara Payload FastAPI",
+            "node": "Prepara Contexto Unificado",
             "type": "main",
             "index": 0
           }
@@ -491,6 +520,33 @@
       ]
     },
     "Supabase - Atualiza Conversa": {
+      "main": [
+        [
+          {
+            "node": "Prepara Contexto Unificado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepara Contexto Unificado": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Salva Msg Inbound",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase - Busca Histórico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Busca Histórico": {
       "main": [
         [
           {
@@ -504,11 +560,6 @@
     "Prepara Payload FastAPI": {
       "main": [
         [
-          {
-            "node": "Supabase - Salva Msg Inbound",
-            "type": "main",
-            "index": 0
-          },
           {
             "node": "HTTP - FastAPI Gatekeeper",
             "type": "main",
@@ -542,7 +593,7 @@
             "index": 0
           },
           {
-            "node": "Tem Resposta?",
+            "node": "Deve Enviar?",
             "type": "main",
             "index": 0
           },
@@ -554,7 +605,7 @@
         ]
       ]
     },
-    "Tem Resposta?": {
+    "Deve Enviar?": {
       "main": [
         [
           {

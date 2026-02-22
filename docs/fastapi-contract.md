@@ -10,88 +10,70 @@ POST https://ade.easyscale.co/v1/sdr/gatekeeper
 
 | Header       | Valor                | Obrigatório |
 |-------------|----------------------|-------------|
-| x-api-key   | `{FASTAPI_API_KEY}`  | Sim         |
+| X-API-Key   | `{FASTAPI_API_KEY}`  | Sim         |
 | Content-Type | application/json     | Sim         |
 
 ## Request Body
 
 ```json
 {
-  "conversation_id": "uuid-da-conversa-no-supabase",
-  "remote_jid": "5511999999999@s.whatsapp.net",
-  "sender_name": "Maria Recepção",
-  "message": "Olá, quem é você?",
-  "message_type": "text",
-  "phone_number": "5511999999999",
-  "is_new_conversation": true,
-  "session_id": null
+  "clinic_name": "Clínica Exemplo",
+  "clinic_phone": "5511999999999",
+  "conversation_history": [
+    { "role": "attendant", "content": "Olá, quem é você?" },
+    { "role": "agent", "content": "Oi! Sou o João da EasyScale..." },
+    { "role": "attendant", "content": "Ah sim, o que precisa?" }
+  ],
+  "latest_message": "Ah sim, o que precisa?"
 }
 ```
 
-| Campo              | Tipo    | Descrição                                              |
-|-------------------|---------|--------------------------------------------------------|
-| conversation_id   | string  | UUID da conversa no Supabase                           |
-| remote_jid        | string  | JID completo do WhatsApp                               |
-| sender_name       | string  | Push name do WhatsApp (nome do atendente)              |
-| message           | string  | Conteúdo da mensagem recebida                          |
-| message_type      | string  | `text`, `image`, `audio`, `document`, `reaction`       |
-| phone_number      | string  | Número limpo (sem @s.whatsapp.net)                     |
-| is_new_conversation | bool  | `true` se é a primeira mensagem desta conversa         |
-| session_id        | string? | ID da sessão no FastAPI (null na primeira interação)   |
+| Campo                | Tipo     | Descrição                                                    |
+|---------------------|----------|--------------------------------------------------------------|
+| clinic_name         | string   | Nome da clínica (pode ser vazio na primeira interação)       |
+| clinic_phone        | string   | Telefone da clínica (número limpo, sem @s.whatsapp.net)      |
+| conversation_history| array    | Histórico de mensagens: `[{ role, content }]`                |
+| latest_message      | string?  | Última mensagem recebida (opcional)                          |
 
-## Response Body (esperado)
+### Objeto `conversation_history[]`
+
+| Campo   | Tipo   | Valores                       |
+|---------|--------|-------------------------------|
+| role    | string | `"attendant"` ou `"agent"`    |
+| content | string | Conteúdo da mensagem          |
+
+## Response Body
 
 ```json
 {
-  "reply": "Oi Maria! Tudo bem? Sou o João da EasyScale...",
-  "session_id": "sess_abc123",
-  "intent": "greeting",
-  "confidence": 0.95,
-  "conversation_status": "active",
-  "decisor_info": null
+  "response_message": "Oi! Tudo bem? Sou o João da EasyScale...",
+  "should_send_message": true,
+  "conversation_stage": "active",
+  "extracted_manager_contact": null,
+  "extracted_manager_name": null
 }
 ```
 
-| Campo               | Tipo    | Descrição                                                    |
-|--------------------|---------|--------------------------------------------------------------|
-| reply              | string  | Mensagem a ser enviada para o atendente. Vazio = sem resposta |
-| session_id         | string  | ID da sessão para manter contexto entre chamadas             |
-| intent             | string  | Intenção detectada na mensagem do atendente                  |
-| confidence         | float   | Confiança da classificação (0.0 a 1.0)                      |
-| conversation_status| string  | Status atualizado da conversa                                |
-| decisor_info       | object? | Dados do decisor (quando capturado)                          |
+| Campo                    | Tipo    | Descrição                                                    |
+|-------------------------|---------|--------------------------------------------------------------|
+| response_message        | string  | Mensagem a ser enviada para o atendente                      |
+| should_send_message     | boolean | Se `true`, enviar `response_message` via WhatsApp            |
+| conversation_stage      | string  | Estágio atual da conversa                                    |
+| extracted_manager_contact| string? | Contato do decisor/gestor extraído (telefone, email, etc.)  |
+| extracted_manager_name  | string? | Nome do decisor/gestor extraído                              |
 
-### Valores de `intent`
+### Valores de `conversation_stage`
 
-| Intent              | Descrição                                  |
-|--------------------|---------------------------------------------|
-| greeting           | Saudação inicial                            |
-| asking_who         | Perguntando quem é / o que quer             |
-| asking_decisor     | Solicitando contato do decisor              |
-| decisor_received   | Atendente informou dados do decisor         |
-| objection          | Atendente resistindo / objeção              |
-| positive_signal    | Sinal positivo (interesse, abertura)        |
-| off_topic          | Mensagem fora do contexto                   |
-| rejection          | Rejeição explícita                          |
-| unknown            | Não classificável                           |
-
-### Valores de `conversation_status`
-
-| Status            | Descrição                                    |
+| Stage              | Descrição                                    |
 |-------------------|----------------------------------------------|
 | active            | Conversa em andamento                        |
 | decisor_captured  | Decisor identificado com sucesso             |
 | rejected          | Atendente recusou / bloqueou                 |
+| stalled           | Conversa travada / sem resposta              |
 
-### Objeto `decisor_info` (quando presente)
+## Variáveis de Ambiente Necessárias (n8n)
 
-```json
-{
-  "name": "Dr. Carlos Silva",
-  "phone": "5511988887777",
-  "email": "carlos@clinica.com",
-  "role": "Diretor Clínico"
-}
-```
-
-Todos os campos são opcionais - o agente preenche conforme o atendente for informando.
+| Variável          | Descrição                           |
+|-------------------|-------------------------------------|
+| FASTAPI_API_KEY   | Chave de acesso à API FastAPI       |
+| FASTAPI_BASE_URL  | URL base (https://ade.easyscale.co) |
