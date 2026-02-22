@@ -652,7 +652,8 @@
     "callerPolicy": "workflowsFromSameOwner",
     "errorWorkflow": "",
     "saveExecutionProgress": true,
-    "executionTimeout": 180
+    "executionTimeout": 180,
+    "timezone": "America/Sao_Paulo"
   },
   "staticData": null,
   "tags": [
