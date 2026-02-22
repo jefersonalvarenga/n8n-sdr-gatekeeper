@@ -178,7 +178,7 @@
     "saveManualExecutions": true,
     "callerPolicy": "workflowsFromSameOwner",
     "saveExecutionProgress": true,
-    "executionTimeout": 180
+    "executionTimeout": 300
   },
   "tags": [
     {
