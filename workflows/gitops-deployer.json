@@ -123,7 +123,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ============================================\n// Decide se é CREATE ou UPDATE\n// Busca workflow existente pelo nome\n// ============================================\n\nconst prepData = $('Prepara Dados do Workflow').first().json;\nconst workflowName = prepData.workflowName;\nconst workflowData = prepData.workflowData;\n\nconst apiResponse = $input.first().json;\nconst existingWorkflows = apiResponse.data || apiResponse || [];\n\n// Procura workflow com o mesmo nome\nlet existingId = null;\nconst workflows = Array.isArray(existingWorkflows) ? existingWorkflows : [];\n\nfor (const wf of workflows) {\n  if (wf.name === workflowName) {\n    existingId = wf.id;\n    break;\n  }\n}\n\n// Prepara o payload para a API do n8n\n// Remove campos que não devem ser enviados na criação/atualização\nconst cleanWorkflow = { ...workflowData };\ndelete cleanWorkflow.id;\ndelete cleanWorkflow.createdAt;\ndelete cleanWorkflow.updatedAt;\n\n// Ativa o workflow automaticamente no deploy\ncleanWorkflow.active = true;\n\nreturn [{\n  json: {\n    action: existingId ? 'update' : 'create',\n    existingId,\n    workflowName,\n    workflowPayload: cleanWorkflow,\n    filePath: prepData.filePath,\n    pusher: prepData.pusher,\n    commitMessage: prepData.commitMessage\n  }\n}];"
+        "jsCode": "// ============================================\n// Decide se é CREATE ou UPDATE\n// Busca workflow existente pelo nome\n// n8n v2: NÃO envia 'active' no body\n// ============================================\n\nconst prepData = $('Prepara Dados do Workflow').first().json;\nconst workflowName = prepData.workflowName;\nconst workflowData = prepData.workflowData;\n\nconst apiResponse = $input.first().json;\nconst existingWorkflows = apiResponse.data || apiResponse || [];\n\n// Procura workflow com o mesmo nome\nlet existingId = null;\nconst workflows = Array.isArray(existingWorkflows) ? existingWorkflows : [];\n\nfor (const wf of workflows) {\n  if (wf.name === workflowName) {\n    existingId = wf.id;\n    break;\n  }\n}\n\n// Prepara o payload para a API do n8n\n// Remove campos que a API não aceita no body\nconst cleanWorkflow = { ...workflowData };\ndelete cleanWorkflow.id;\ndelete cleanWorkflow.createdAt;\ndelete cleanWorkflow.updatedAt;\ndelete cleanWorkflow.active;\ndelete cleanWorkflow.versionId;\n\nreturn [{\n  json: {\n    action: existingId ? 'update' : 'create',\n    existingId,\n    workflowName,\n    workflowPayload: cleanWorkflow,\n    filePath: prepData.filePath,\n    pusher: prepData.pusher,\n    commitMessage: prepData.commitMessage\n  }\n}];"
       },
       "id": "decide-create-or-update",
       "name": "Create ou Update?",
@@ -232,7 +232,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Resultado final do deploy\nconst response = $input.first().json;\nconst context = $('Create ou Update?').first().json;\n\nconst body = response.body || response;\nconst statusCode = response.statusCode || 200;\n\nreturn [{\n  json: {\n    success: statusCode >= 200 && statusCode < 300,\n    action: context.action,\n    workflowName: context.workflowName,\n    workflowId: body.id || context.existingId || 'unknown',\n    filePath: context.filePath,\n    pusher: context.pusher,\n    commitMessage: context.commitMessage,\n    statusCode,\n    timestamp: new Date().toISOString()\n  }\n}];"
+        "jsCode": "// Extrai o ID do workflow criado/atualizado\nconst response = $input.first().json;\nconst context = $('Create ou Update?').first().json;\n\nconst body = response.body || response;\nconst statusCode = response.statusCode || 200;\nconst workflowId = body.id || context.existingId || 'unknown';\n\nreturn [{\n  json: {\n    success: statusCode >= 200 && statusCode < 300,\n    action: context.action,\n    workflowName: context.workflowName,\n    workflowId,\n    filePath: context.filePath,\n    pusher: context.pusher,\n    commitMessage: context.commitMessage,\n    statusCode,\n    timestamp: new Date().toISOString()\n  }\n}];"
       },
       "id": "format-result",
       "name": "Resultado do Deploy",
@@ -242,8 +242,36 @@
     },
     {
       "parameters": {
+        "method": "POST",
+        "url": "=https://n8n.easyscale.co/api/v1/workflows/{{ $json.workflowId }}/activate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-KEY",
+              "value": "={{ $env.N8N_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "activate-workflow",
+      "name": "n8n API - Activate Workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2530, 300]
+    },
+    {
+      "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ status: 'deployed', workflow: $json.workflowName, action: $json.action, id: $json.workflowId }) }}",
+        "responseBody": "={{ JSON.stringify({ status: 'deployed_and_activated', workflow: $('Resultado do Deploy').first().json.workflowName, action: $('Resultado do Deploy').first().json.action, id: $('Resultado do Deploy').first().json.workflowId, activated: true }) }}",
         "options": {
           "responseCode": 200
         }
@@ -252,7 +280,7 @@
       "name": "Respond - Deploy OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [2530, 300]
+      "position": [2760, 300]
     },
     {
       "parameters": {
@@ -395,6 +423,17 @@
       ]
     },
     "Resultado do Deploy": {
+      "main": [
+        [
+          {
+            "node": "n8n API - Activate Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n8n API - Activate Workflow": {
       "main": [
         [
           {
