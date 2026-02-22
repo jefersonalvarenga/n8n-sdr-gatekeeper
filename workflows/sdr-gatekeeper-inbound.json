@@ -601,7 +601,7 @@
     "callerPolicy": "workflowsFromSameOwner",
     "errorWorkflow": "",
     "saveExecutionProgress": true,
-    "executionTimeout": 600
+    "executionTimeout": 300
   },
   "staticData": null,
   "tags": [
