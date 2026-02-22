@@ -32,7 +32,7 @@
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
-          "name": "Supabase PostgreSQL"
+          "name": "Postgres SDR Gatekeeper"
         }
       }
     },
@@ -60,7 +60,7 @@
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
-          "name": "Supabase PostgreSQL"
+          "name": "Postgres SDR Gatekeeper"
         }
       }
     },
@@ -78,7 +78,7 @@
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
-          "name": "Supabase PostgreSQL"
+          "name": "Postgres SDR Gatekeeper"
         }
       }
     },
@@ -106,7 +106,7 @@
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
-          "name": "Supabase PostgreSQL"
+          "name": "Postgres SDR Gatekeeper"
         }
       }
     }
