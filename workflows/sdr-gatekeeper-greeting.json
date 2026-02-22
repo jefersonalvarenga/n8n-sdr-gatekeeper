@@ -1,0 +1,504 @@
+{
+  "name": "SDR Gatekeeper - Greeting Outbound",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "cron-greeting",
+      "name": "Cron - Greeting 15min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Verifica horário comercial (Seg-Sex, 9h-18h BRT)\n// e calcula batch size conforme warm-up\n// ============================================\n\nconst now = new Date();\n\n// Converte para BRT (UTC-3)\nconst brt = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));\nconst hour = brt.getHours();\nconst day = brt.getDay(); // 0=Dom, 6=Sab\n\n// Fora do horário comercial?\nif (day === 0 || day === 6 || hour < 9 || hour >= 18) {\n  return [{ json: { skip: true, reason: 'fora_horario_comercial', hour, day } }];\n}\n\n// Sexta depois das 16h - não envia (expira no fim de semana)\nif (day === 5 && hour >= 16) {\n  return [{ json: { skip: true, reason: 'sexta_tarde', hour, day } }];\n}\n\n// Warm-up config (ajustar conforme semana)\n// Semana 1: batch=5, cap=30\n// Semana 2: batch=10, cap=80\n// Semana 3: batch=15, cap=150\n// Semana 4+: batch=20, cap=250\nconst BATCH_SIZE = 5;\nconst DAILY_CAP = 30;\nconst MIN_DELAY_S = 60;\nconst MAX_DELAY_S = 120;\n\nreturn [{ json: {\n  skip: false,\n  batchSize: BATCH_SIZE,\n  dailyCap: DAILY_CAP,\n  minDelayS: MIN_DELAY_S,\n  maxDelayS: MAX_DELAY_S,\n  hour,\n  day\n} }];"
+      },
+      "id": "check-business-hours",
+      "name": "Horário Comercial?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-skip",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-business-hours",
+      "name": "Dentro do Horário?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(*) as today_count FROM gk_leads\nWHERE status = 'sent' AND sent_at >= CURRENT_DATE;",
+        "options": {}
+      },
+      "id": "daily-cap-check",
+      "name": "Supabase - Cap Diário",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [930, 300],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Verifica se atingiu o cap diário\nconst config = $('Horário Comercial?').first().json;\nconst todayCount = parseInt($input.first().json.today_count) || 0;\n\nif (todayCount >= config.dailyCap) {\n  return [{ json: { skip: true, reason: 'daily_cap_atingido', todayCount, dailyCap: config.dailyCap } }];\n}\n\nreturn [{ json: {\n  skip: false,\n  todayCount,\n  remaining: config.dailyCap - todayCount,\n  batchSize: Math.min(config.batchSize, config.dailyCap - todayCount),\n  minDelayS: config.minDelayS,\n  maxDelayS: config.maxDelayS\n} }];"
+      },
+      "id": "check-daily-cap",
+      "name": "Atingiu Cap?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1160, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-cap",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-daily-cap",
+      "name": "Abaixo do Cap?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [1390, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM gk_get_pending_leads({{ $json.batchSize }});",
+        "options": {}
+      },
+      "id": "fetch-leads",
+      "name": "Supabase - Busca Leads ICP",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1620, 300],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-has-leads",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-leads",
+      "name": "Tem Leads?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [1850, 300]
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        },
+        "batchSize": 1
+      },
+      "id": "split-batches",
+      "name": "SplitInBatches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [2080, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Seleciona template aleatório e personaliza\n// Calcula delay aleatório para cadência humanizada\n// ============================================\n\nconst templates = [\n  'Oi, tudo bem? Estou tentando falar com alguém da {clinic_name}. Você poderia me ajudar?',\n  'Olá! Boa tarde! Estou buscando o responsável da {clinic_name}, consegue me direcionar?',\n  'Oi! Meu nome é Sofia, da EasyScale. Estou tentando contato com a {clinic_name}, pode me ajudar?',\n  'Olá, tudo bem? Gostaria de falar com o gestor da {clinic_name}. Você sabe quem é?',\n  'Oi! Sou a Sofia da EasyScale. Conseguiria me ajudar a falar com alguém da direção da {clinic_name}?',\n  'Olá! Estou entrando em contato com a {clinic_name}. Poderia me indicar quem cuida da parte de gestão?',\n  'Oi, tudo bem? Aqui é a Sofia. Estou tentando um contato com a {clinic_name}, pode me dar uma mão?',\n  'Olá! Gostaria de conversar com alguém da {clinic_name} sobre uma oportunidade. Quem seria a melhor pessoa?'\n];\n\nconst lead = $input.first().json;\nconst config = $('Atingiu Cap?').first().json;\n\n// Template aleatório\nconst idx = Math.floor(Math.random() * templates.length);\nconst message = templates[idx].replace(/{clinic_name}/g, lead.clinic_name);\n\n// Delay aleatório entre min e max\nconst delayS = config.minDelayS + Math.floor(Math.random() * (config.maxDelayS - config.minDelayS));\n\nreturn [{\n  json: {\n    ...lead,\n    greetingMessage: message,\n    templateIndex: idx,\n    delaySec: delayS\n  }\n}];"
+      },
+      "id": "select-template",
+      "name": "Seleciona Template",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2310, 300]
+    },
+    {
+      "parameters": {
+        "amount": "={{ $json.delaySec }}",
+        "unit": "seconds"
+      },
+      "id": "wait-delay",
+      "name": "Wait - Delay Aleatório",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2540, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE gk_leads SET status = 'sent', updated_at = NOW()\nWHERE id = '{{ $json.id }}' AND status = 'pending'\nRETURNING id;",
+        "options": {}
+      },
+      "id": "mark-processing",
+      "name": "Marca Lead Processando",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2770, 300],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE_NAME }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": {{ JSON.stringify($('Seleciona Template').first().json.remote_jid) }},\n  \"text\": {{ JSON.stringify($('Seleciona Template').first().json.greetingMessage) }}\n}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "send-greeting",
+      "name": "Evolution - Envia Greeting",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3000, 300],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO gk_conversations (remote_jid, clinic_name, push_name, status, evolution_instance, message_count, last_message_at, expires_at)\nVALUES (\n  '{{ $('Seleciona Template').first().json.remote_jid }}',\n  $gk${{ $('Seleciona Template').first().json.clinic_name }}$gk$,\n  '',\n  'active',\n  '{{ $env.EVOLUTION_INSTANCE_NAME }}',\n  1,\n  NOW(),\n  NOW() + INTERVAL '4 hours'\n)\nRETURNING id;",
+        "options": {}
+      },
+      "id": "create-conversation",
+      "name": "Supabase - Cria Conversa",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [3230, 300],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO gk_messages (conversation_id, direction, content, message_type)\nVALUES (\n  '{{ $json.id }}',\n  'outbound',\n  $gk${{ $('Seleciona Template').first().json.greetingMessage }}$gk$,\n  'text'\n);",
+        "options": {}
+      },
+      "id": "save-outbound-msg",
+      "name": "Supabase - Salva Msg Outbound",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [3460, 200],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE gk_leads\nSET sent_at = NOW(),\n    conversation_id = '{{ $('Supabase - Cria Conversa').first().json.id }}',\n    updated_at = NOW()\nWHERE id = '{{ $('Seleciona Template').first().json.id }}';",
+        "options": {}
+      },
+      "id": "update-lead-sent",
+      "name": "Supabase - Atualiza Lead",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [3460, 400],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Cron - Greeting 15min": {
+      "main": [
+        [
+          {
+            "node": "Horário Comercial?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Horário Comercial?": {
+      "main": [
+        [
+          {
+            "node": "Dentro do Horário?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dentro do Horário?": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Cap Diário",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Cap Diário": {
+      "main": [
+        [
+          {
+            "node": "Atingiu Cap?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atingiu Cap?": {
+      "main": [
+        [
+          {
+            "node": "Abaixo do Cap?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Abaixo do Cap?": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Busca Leads ICP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Busca Leads ICP": {
+      "main": [
+        [
+          {
+            "node": "Tem Leads?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem Leads?": {
+      "main": [
+        [
+          {
+            "node": "SplitInBatches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SplitInBatches": {
+      "main": [
+        [
+          {
+            "node": "Seleciona Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seleciona Template": {
+      "main": [
+        [
+          {
+            "node": "Wait - Delay Aleatório",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait - Delay Aleatório": {
+      "main": [
+        [
+          {
+            "node": "Marca Lead Processando",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marca Lead Processando": {
+      "main": [
+        [
+          {
+            "node": "Evolution - Envia Greeting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evolution - Envia Greeting": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Cria Conversa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Cria Conversa": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Salva Msg Outbound",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase - Atualiza Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Salva Msg Outbound": {
+      "main": [
+        [
+          {
+            "node": "SplitInBatches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "",
+    "saveExecutionProgress": true,
+    "executionTimeout": 600,
+    "timezone": "America/Sao_Paulo"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "SDR",
+      "id": "1"
+    },
+    {
+      "name": "Gatekeeper",
+      "id": "2"
+    },
+    {
+      "name": "Production",
+      "id": "3"
+    }
+  ]
+}
