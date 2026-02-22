@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ============================================\n// Valida e parseia o webhook do GitHub (push event)\n// ============================================\n\nconst body = $input.first().json.body;\nconst headers = $input.first().json.headers;\n\n// Valida secret do webhook (opcional mas recomendado)\nconst githubEvent = headers['x-github-event'];\n\nif (githubEvent !== 'push') {\n  return [{ json: { ignore: true, reason: 'not_push_event', event: githubEvent } }];\n}\n\n// Filtra apenas commits que alteraram arquivos na pasta workflows/\nconst commits = body.commits || [];\nconst ref = body.ref || '';\n\n// Só processa push na branch main\nif (ref !== 'refs/heads/main') {\n  return [{ json: { ignore: true, reason: 'not_main_branch', ref } }];\n}\n\n// Coleta todos os arquivos de workflow modificados/adicionados\nconst workflowFiles = new Set();\n\nfor (const commit of commits) {\n  const allFiles = [\n    ...(commit.added || []),\n    ...(commit.modified || [])\n  ];\n  \n  for (const file of allFiles) {\n    if (file.startsWith('workflows/') && file.endsWith('.json')) {\n      // Ignora o próprio deployer pra evitar loop\n      if (!file.includes('gitops-deployer')) {\n        workflowFiles.add(file);\n      }\n    }\n  }\n}\n\nif (workflowFiles.size === 0) {\n  return [{ json: { ignore: true, reason: 'no_workflow_changes' } }];\n}\n\n// Monta info do repo pra baixar os arquivos\nconst repoFullName = body.repository?.full_name || '';\n\nreturn Array.from(workflowFiles).map(filePath => ({\n  json: {\n    ignore: false,\n    filePath,\n    fileName: filePath.split('/').pop().replace('.json', ''),\n    repoFullName,\n    branch: 'main',\n    rawUrl: `https://raw.githubusercontent.com/${repoFullName}/main/${filePath}`,\n    pusher: body.pusher?.name || 'unknown',\n    commitMessage: commits[commits.length - 1]?.message || ''\n  }\n}));"
+        "jsCode": "// ============================================\n// Valida e parseia o webhook do GitHub (push event)\n// ============================================\n\nconst body = $input.first().json.body;\nconst headers = $input.first().json.headers;\n\nconst githubEvent = headers['x-github-event'];\n\nif (githubEvent !== 'push') {\n  return [{ json: { ignore: true, reason: 'not_push_event', event: githubEvent } }];\n}\n\nconst commits = body.commits || [];\nconst ref = body.ref || '';\n\nif (ref !== 'refs/heads/main') {\n  return [{ json: { ignore: true, reason: 'not_main_branch', ref } }];\n}\n\nconst workflowFiles = new Set();\n\nfor (const commit of commits) {\n  const allFiles = [\n    ...(commit.added || []),\n    ...(commit.modified || [])\n  ];\n  \n  for (const file of allFiles) {\n    if (file.startsWith('workflows/') && file.endsWith('.json')) {\n      if (!file.includes('gitops-deployer')) {\n        workflowFiles.add(file);\n      }\n    }\n  }\n}\n\nif (workflowFiles.size === 0) {\n  return [{ json: { ignore: true, reason: 'no_workflow_changes' } }];\n}\n\nconst repoFullName = body.repository?.full_name || '';\n\nreturn Array.from(workflowFiles).map(filePath => ({\n  json: {\n    ignore: false,\n    filePath,\n    fileName: filePath.split('/').pop().replace('.json', ''),\n    repoFullName,\n    branch: 'main',\n    rawUrl: `https://raw.githubusercontent.com/${repoFullName}/main/${filePath}`,\n    pusher: body.pusher?.name || 'unknown',\n    commitMessage: commits[commits.length - 1]?.message || ''\n  }\n}));"
       },
       "id": "parse-github-webhook",
       "name": "Parse GitHub Push",
@@ -76,7 +76,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ============================================\n// Busca se já existe um workflow com esse nome no n8n\n// para decidir se faz CREATE ou UPDATE\n// ============================================\n\nconst workflowData = $input.first().json;\nconst workflowName = workflowData.name;\n\n// Guarda o JSON completo do workflow baixado\nreturn [{\n  json: {\n    workflowName,\n    workflowData,\n    filePath: $('Tem Workflow Alterado?').first().json.filePath,\n    pusher: $('Tem Workflow Alterado?').first().json.pusher,\n    commitMessage: $('Tem Workflow Alterado?').first().json.commitMessage\n  }\n}];"
+        "jsCode": "const workflowData = $input.first().json;\nconst workflowName = workflowData.name;\n\nreturn [{\n  json: {\n    workflowName,\n    workflowData,\n    filePath: $('Tem Workflow Alterado?').first().json.filePath,\n    pusher: $('Tem Workflow Alterado?').first().json.pusher,\n    commitMessage: $('Tem Workflow Alterado?').first().json.commitMessage\n  }\n}];"
       },
       "id": "prepare-workflow-data",
       "name": "Prepara Dados do Workflow",
@@ -123,10 +123,10 @@
     },
     {
       "parameters": {
-        "jsCode": "// ============================================\n// Decide se é CREATE ou UPDATE\n// Busca workflow existente pelo nome\n// n8n v2: campos read-only devem ser removidos\n// ============================================\n\nconst prepData = $('Prepara Dados do Workflow').first().json;\nconst workflowName = prepData.workflowName;\nconst workflowData = prepData.workflowData;\n\nconst apiResponse = $input.first().json;\nconst existingWorkflows = apiResponse.data || apiResponse || [];\n\n// Procura workflow com o mesmo nome\nlet existingId = null;\nconst workflows = Array.isArray(existingWorkflows) ? existingWorkflows : [];\n\nfor (const wf of workflows) {\n  if (wf.name === workflowName) {\n    existingId = wf.id;\n    break;\n  }\n}\n\n// Prepara o payload para a API do n8n\n// Remove TODOS os campos read-only que a API rejeita\nconst cleanWorkflow = { ...workflowData };\ndelete cleanWorkflow.id;\ndelete cleanWorkflow.createdAt;\ndelete cleanWorkflow.updatedAt;\ndelete cleanWorkflow.active;\ndelete cleanWorkflow.versionId;\ndelete cleanWorkflow.tags;\ndelete cleanWorkflow.staticData;\ndelete cleanWorkflow.meta;\ndelete cleanWorkflow.pinData;\n\nreturn [{\n  json: {\n    action: existingId ? 'update' : 'create',\n    existingId,\n    workflowName,\n    workflowPayload: cleanWorkflow,\n    filePath: prepData.filePath,\n    pusher: prepData.pusher,\n    commitMessage: prepData.commitMessage\n  }\n}];"
+        "jsCode": "// ============================================\n// Estratégia: DELETE + CREATE (n8n API não atualiza nodes no PUT)\n// Se existe → deleta primeiro, depois cria do zero\n// ============================================\n\nconst prepData = $('Prepara Dados do Workflow').first().json;\nconst workflowName = prepData.workflowName;\nconst workflowData = prepData.workflowData;\n\nconst apiResponse = $input.first().json;\nconst existingWorkflows = apiResponse.data || apiResponse || [];\n\nlet existingId = null;\nconst workflows = Array.isArray(existingWorkflows) ? existingWorkflows : [];\n\nfor (const wf of workflows) {\n  if (wf.name === workflowName) {\n    existingId = wf.id;\n    break;\n  }\n}\n\n// Remove campos read-only\nconst cleanWorkflow = { ...workflowData };\ndelete cleanWorkflow.id;\ndelete cleanWorkflow.createdAt;\ndelete cleanWorkflow.updatedAt;\ndelete cleanWorkflow.active;\ndelete cleanWorkflow.versionId;\ndelete cleanWorkflow.tags;\ndelete cleanWorkflow.staticData;\ndelete cleanWorkflow.meta;\ndelete cleanWorkflow.pinData;\n\nreturn [{\n  json: {\n    existingId,\n    needsDelete: existingId !== null,\n    workflowName,\n    workflowPayload: cleanWorkflow,\n    filePath: prepData.filePath,\n    pusher: prepData.pusher,\n    commitMessage: prepData.commitMessage\n  }\n}];"
       },
-      "id": "decide-create-or-update",
-      "name": "Create ou Update?",
+      "id": "decide-action",
+      "name": "Prepara Deploy",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [1600, 300]
@@ -141,12 +141,13 @@
           },
           "conditions": [
             {
-              "id": "condition-is-update",
-              "leftValue": "={{ $json.action }}",
-              "rightValue": "update",
+              "id": "condition-needs-delete",
+              "leftValue": "={{ $json.needsDelete }}",
+              "rightValue": true,
               "operator": {
-                "type": "string",
-                "operation": "equals"
+                "type": "boolean",
+                "operation": "equals",
+                "singleValue": true
               }
             }
           ],
@@ -154,15 +155,15 @@
         },
         "options": {}
       },
-      "id": "check-action",
-      "name": "É Update?",
+      "id": "check-needs-delete",
+      "name": "Já Existe?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [1830, 300]
     },
     {
       "parameters": {
-        "method": "PUT",
+        "method": "DELETE",
         "url": "=https://n8n.easyscale.co/api/v1/workflows/{{ $json.existingId }}",
         "sendHeaders": true,
         "headerParameters": {
@@ -170,30 +171,28 @@
             {
               "name": "X-N8N-API-KEY",
               "value": "={{ $env.N8N_API_KEY }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
             }
           ]
         },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.workflowPayload) }}",
         "options": {
-          "timeout": 15000,
-          "response": {
-            "response": {
-              "responseFormat": "json"
-            }
-          }
+          "timeout": 10000
         }
       },
-      "id": "api-update-workflow",
-      "name": "n8n API - Update Workflow",
+      "id": "api-delete-workflow",
+      "name": "n8n API - Delete Antigo",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [2060, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Recupera o payload original após o delete\nconst context = $('Prepara Deploy').first().json;\nreturn [{ json: context }];"
+      },
+      "id": "restore-context-after-delete",
+      "name": "Restaura Contexto",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2280, 200]
     },
     {
       "parameters": {
@@ -228,17 +227,17 @@
       "name": "n8n API - Create Workflow",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2060, 420]
+      "position": [2500, 300]
     },
     {
       "parameters": {
-        "jsCode": "// Extrai o ID do workflow criado/atualizado\n// Resposta JSON direta: { id, name, nodes, ... }\nconst response = $input.first().json;\nconst context = $('Create ou Update?').first().json;\n\nconst workflowId = response.id || context.existingId || 'unknown';\n\nreturn [{\n  json: {\n    action: context.action,\n    workflowName: context.workflowName,\n    workflowId: String(workflowId),\n    filePath: context.filePath,\n    pusher: context.pusher,\n    commitMessage: context.commitMessage,\n    timestamp: new Date().toISOString()\n  }\n}];"
+        "jsCode": "// Extrai o ID do workflow recém-criado\nconst response = $input.first().json;\nconst context = $('Prepara Deploy').first().json;\n\nconst workflowId = response.id || 'unknown';\n\nreturn [{\n  json: {\n    workflowName: context.workflowName,\n    workflowId: String(workflowId),\n    filePath: context.filePath,\n    pusher: context.pusher,\n    commitMessage: context.commitMessage,\n    hadExisting: context.needsDelete,\n    timestamp: new Date().toISOString()\n  }\n}];"
       },
       "id": "format-result",
       "name": "Resultado do Deploy",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2300, 300]
+      "position": [2720, 300]
     },
     {
       "parameters": {
@@ -266,12 +265,12 @@
       "name": "n8n API - Activate Workflow",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2530, 300]
+      "position": [2940, 300]
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ status: 'deployed_and_activated', workflow: $('Resultado do Deploy').first().json.workflowName, action: $('Resultado do Deploy').first().json.action, id: $('Resultado do Deploy').first().json.workflowId }) }}",
+        "responseBody": "={{ JSON.stringify({ status: 'deployed_and_activated', workflow: $('Resultado do Deploy').first().json.workflowName, id: $('Resultado do Deploy').first().json.workflowId, replaced: $('Resultado do Deploy').first().json.hadExisting }) }}",
         "options": {
           "responseCode": 200
         }
@@ -280,7 +279,7 @@
       "name": "Respond - Deploy OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [2760, 300]
+      "position": [3160, 300]
     },
     {
       "parameters": {
@@ -364,29 +363,29 @@
       "main": [
         [
           {
-            "node": "Create ou Update?",
+            "node": "Prepara Deploy",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Create ou Update?": {
+    "Prepara Deploy": {
       "main": [
         [
           {
-            "node": "É Update?",
+            "node": "Já Existe?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "É Update?": {
+    "Já Existe?": {
       "main": [
         [
           {
-            "node": "n8n API - Update Workflow",
+            "node": "n8n API - Delete Antigo",
             "type": "main",
             "index": 0
           }
@@ -400,11 +399,22 @@
         ]
       ]
     },
-    "n8n API - Update Workflow": {
+    "n8n API - Delete Antigo": {
       "main": [
         [
           {
-            "node": "Resultado do Deploy",
+            "node": "Restaura Contexto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restaura Contexto": {
+      "main": [
+        [
+          {
+            "node": "n8n API - Create Workflow",
             "type": "main",
             "index": 0
           }

@@ -165,7 +165,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO gk_messages (conversation_id, direction, content, message_type, wamid)\nVALUES (\n  '{{ $json.conversationId }}',\n  'inbound',\n  '{{ $json.messageContent.replace(/'/g, \"''\") }}',\n  '{{ $json.messageType }}',\n  '{{ $json.wamid }}'\n);",
+        "query": "INSERT INTO gk_messages (conversation_id, direction, content, message_type, wamid)\nVALUES (\n  '{{ $json.conversationId }}',\n  'inbound',\n  {{ $json.messageContent.toJsonString() }},\n  '{{ $json.messageType }}',\n  '{{ $json.wamid }}'\n);",
         "options": {}
       },
       "id": "save-inbound-message",
@@ -249,7 +249,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO gk_messages (conversation_id, direction, content, message_type, agent_intent, agent_confidence)\nVALUES (\n  '{{ $json.conversationId }}',\n  'outbound',\n  '{{ $json.reply.replace(/'/g, \"''\") }}',\n  'text',\n  '{{ $json.intent }}',\n  {{ $json.confidence }}\n);",
+        "query": "INSERT INTO gk_messages (conversation_id, direction, content, message_type, agent_intent, agent_confidence)\nVALUES (\n  '{{ $json.conversationId }}',\n  'outbound',\n  {{ $json.reply.toJsonString() }},\n  'text',\n  '{{ $json.intent }}',\n  {{ $json.confidence }}\n);",
         "options": {}
       },
       "id": "save-outbound-message",
