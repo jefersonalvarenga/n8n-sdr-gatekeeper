@@ -57,6 +57,97 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-reset",
+              "leftValue": "={{ $json.messageContent.trim().toLowerCase() }}",
+              "rightValue": "reset",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-reset",
+      "name": "É Reset?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [930, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Apaga eventos, mensagens e conversas do remote_jid\nDELETE FROM gk_events WHERE conversation_id IN (\n  SELECT id FROM gk_conversations WHERE remote_jid = '{{ $json.remoteJid }}'\n);\nDELETE FROM gk_messages WHERE conversation_id IN (\n  SELECT id FROM gk_conversations WHERE remote_jid = '{{ $json.remoteJid }}'\n);\nDELETE FROM gk_conversations WHERE remote_jid = '{{ $json.remoteJid }}';",
+        "options": {}
+      },
+      "id": "reset-conversation",
+      "name": "Supabase - Reset Conversa",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1200, 100],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE_NAME }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": {{ JSON.stringify($('Parse Evolution Payload').first().json.remoteJid) }},\n  \"text\": \"Conversa resetada. Pode começar novamente.\"\n}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "send-reset-confirmation",
+      "name": "Evolution - Confirma Reset",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1470, 100]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'ok', action: 'reset', remoteJid: $('Parse Evolution Payload').first().json.remoteJid }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "webhook-response-reset",
+      "name": "Respond - Reset OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1740, 100]
+    },
+    {
+      "parameters": {
         "operation": "executeQuery",
         "query": "SELECT\n  COALESCE(c.id::text, 'none') AS id,\n  COALESCE(c.status, 'new') AS status,\n  COALESCE(c.message_count, 0) AS message_count,\n  COALESCE(c.fastapi_session_id, '') AS fastapi_session_id,\n  COALESCE(c.clinic_name, '') AS clinic_name,\n  COALESCE(c.remote_jid, '') AS clinic_phone,\n  CASE WHEN c.id IS NULL THEN true ELSE false END AS is_new\nFROM (SELECT 1) AS dummy\nLEFT JOIN gk_conversations c\n  ON c.remote_jid = '{{ $json.remoteJid }}'\n  AND c.status IN ('active', 'stalled')\nORDER BY c.created_at DESC NULLS LAST\nLIMIT 1;",
         "options": {}
@@ -65,7 +156,7 @@
       "name": "Supabase - Busca Conversa",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [930, 300],
+      "position": [1200, 400],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -78,13 +169,13 @@
     },
     {
       "parameters": {
-        "jsCode": "// Merge dados da mensagem com dados da conversa existente\n// A query sempre retorna 1 row (LEFT JOIN com dummy)\nconst message = $('Filtro - Mensagem Válida?').first().json;\nconst dbResults = $input.first().json;\n\nconst isNew = dbResults.is_new === true || dbResults.id === 'none';\n\nreturn [{\n  json: {\n    ...message,\n    conversationId: isNew ? null : dbResults.id,\n    isNewConversation: isNew,\n    fastapiSessionId: isNew ? null : (dbResults.fastapi_session_id || null),\n    currentStatus: isNew ? null : dbResults.status,\n    clinicName: isNew ? '' : (dbResults.clinic_name || ''),\n    clinicPhone: isNew ? message.phoneNumber : (dbResults.clinic_phone || message.phoneNumber)\n  }\n}];"
+        "jsCode": "// Merge dados da mensagem com dados da conversa existente\n// A query sempre retorna 1 row (LEFT JOIN com dummy)\nconst message = $('É Reset?').first().json;\nconst dbResults = $input.first().json;\n\nconst isNew = dbResults.is_new === true || dbResults.id === 'none';\n\nreturn [{\n  json: {\n    ...message,\n    conversationId: isNew ? null : dbResults.id,\n    isNewConversation: isNew,\n    fastapiSessionId: isNew ? null : (dbResults.fastapi_session_id || null),\n    currentStatus: isNew ? null : dbResults.status,\n    clinicName: isNew ? '' : (dbResults.clinic_name || ''),\n    clinicPhone: isNew ? message.phoneNumber : (dbResults.clinic_phone || message.phoneNumber)\n  }\n}];"
       },
       "id": "merge-context",
       "name": "Merge - Contexto da Conversa",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1150, 300]
+      "position": [1430, 400]
     },
     {
       "parameters": {
@@ -114,7 +205,7 @@
       "name": "Nova Conversa?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1370, 300]
+      "position": [1660, 400]
     },
     {
       "parameters": {
@@ -126,7 +217,7 @@
       "name": "Supabase - Cria Conversa",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1600, 200],
+      "position": [1900, 300],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -144,7 +235,7 @@
       "name": "Supabase - Atualiza Conversa",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1600, 400],
+      "position": [1900, 500],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -160,7 +251,7 @@
       "name": "Prepara Contexto Unificado",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1860, 300]
+      "position": [2140, 400]
     },
     {
       "parameters": {
@@ -172,7 +263,7 @@
       "name": "Supabase - Salva Msg Inbound",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [2080, 160],
+      "position": [2370, 260],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -190,7 +281,7 @@
       "name": "Supabase - Busca Histórico",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [2080, 440],
+      "position": [2370, 540],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -207,7 +298,7 @@
       "name": "Prepara Payload FastAPI",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2310, 440]
+      "position": [2600, 540]
     },
     {
       "parameters": {
@@ -242,7 +333,7 @@
       "name": "HTTP - FastAPI Gatekeeper",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2540, 440],
+      "position": [2830, 540],
       "retryOnFail": true,
       "maxTries": 2,
       "waitBetweenTries": 2000
@@ -255,7 +346,7 @@
       "name": "Processa Resposta FastAPI",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2770, 440]
+      "position": [3060, 540]
     },
     {
       "parameters": {
@@ -267,7 +358,7 @@
       "name": "Supabase - Atualiza Status",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [3010, 300],
+      "position": [3300, 400],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -285,7 +376,7 @@
       "name": "Supabase - Salva Msg Outbound",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [3010, 500],
+      "position": [3300, 600],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -321,7 +412,7 @@
       "name": "Deve Enviar?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [3240, 440]
+      "position": [3530, 540]
     },
     {
       "parameters": {
@@ -351,7 +442,7 @@
       "name": "Evolution API - Envia Resposta",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3470, 340],
+      "position": [3760, 440],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 3000
@@ -368,7 +459,7 @@
       "name": "Respond OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [3700, 340]
+      "position": [3990, 440]
     },
     {
       "parameters": {
@@ -382,7 +473,7 @@
       "name": "Respond - Sem Resposta",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [3470, 560]
+      "position": [3760, 660]
     },
     {
       "parameters": {
@@ -406,7 +497,7 @@
       "name": "Evento - Decisor Capturado?",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3470, 720]
+      "position": [3760, 820]
     },
     {
       "parameters": {
@@ -418,7 +509,7 @@
       "name": "Supabase - Salva Evento",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [3700, 720],
+      "position": [3990, 820],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -454,7 +545,7 @@
       "main": [
         [
           {
-            "node": "Supabase - Busca Conversa",
+            "node": "É Reset?",
             "type": "main",
             "index": 0
           }
@@ -462,6 +553,46 @@
         [
           {
             "node": "Respond - Ignorada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É Reset?": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Reset Conversa",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase - Busca Conversa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Reset Conversa": {
+      "main": [
+        [
+          {
+            "node": "Evolution - Confirma Reset",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evolution - Confirma Reset": {
+      "main": [
+        [
+          {
+            "node": "Respond - Reset OK",
             "type": "main",
             "index": 0
           }
