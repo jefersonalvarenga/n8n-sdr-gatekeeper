@@ -61,7 +61,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT COUNT(*) as today_count FROM gk_leads\nWHERE status = 'sent' AND sent_at >= CURRENT_DATE;",
+        "query": "SELECT COUNT(*) as today_count FROM gk_leads\nWHERE sent_at >= CURRENT_DATE;",
         "options": {}
       },
       "id": "daily-cap-check",
@@ -186,7 +186,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO gk_leads (clinic_name, clinic_phone, place_id, lead_score, ads_group, status)\nVALUES (\n  $gk${{ $json[0].out_clinic_name }}$gk$,\n  '{{ $json[0].out_clinic_phone }}',\n  $gk${{ $json[0].out_place_id }}$gk$,\n  {{ $json[0].out_lead_score || 0 }},\n  $gk${{ $json[0].out_ads_group }}$gk$,\n  'pending'\n)\nON CONFLICT DO NOTHING\nRETURNING *;",
+        "query": "INSERT INTO gk_leads (clinic_name, clinic_phone, place_id, lead_score, ads_group, status)\nVALUES (\n  $gk${{ $json[0].out_clinic_name }}$gk$,\n  '{{ $json[0].out_clinic_phone }}',\n  $gk${{ $json[0].out_place_id }}$gk$,\n  {{ $json[0].out_lead_score || 0 }},\n  $gk${{ $json[0].out_ads_group }}$gk$,\n  'created'\n)\nON CONFLICT DO NOTHING\nRETURNING *;",
         "options": {}
       },
       "id": "insert-gk-lead",
@@ -255,7 +255,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE gk_leads SET status = 'sent', updated_at = NOW()\nWHERE id = '{{ $json.id }}' AND status = 'pending'\nRETURNING id;",
+        "query": "UPDATE gk_leads SET updated_at = NOW()\nWHERE id = '{{ $json.id }}' AND status = 'created'\nRETURNING id;",
         "options": {}
       },
       "id": "mark-processing",
@@ -306,7 +306,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO gk_conversations (remote_jid, clinic_name, push_name, status, evolution_instance, message_count, last_message_at, expires_at)\nVALUES (\n  '{{ $('Seleciona Template').first().json.remote_jid }}',\n  $gk${{ $('Seleciona Template').first().json.clinic_name }}$gk$,\n  '',\n  'active',\n  '{{ $env.EVOLUTION_INSTANCE_NAME }}',\n  1,\n  NOW(),\n  NOW() + INTERVAL '4 hours'\n)\nRETURNING id;",
+        "query": "INSERT INTO gk_conversations (remote_jid, clinic_name, push_name, status, evolution_instance, message_count, last_message_at, expires_at)\nVALUES (\n  '{{ $('Seleciona Template').first().json.remote_jid }}',\n  $gk${{ $('Seleciona Template').first().json.clinic_name }}$gk$,\n  '',\n  'greeting_sent',\n  '{{ $env.EVOLUTION_INSTANCE_NAME }}',\n  1,\n  NOW(),\n  NOW() + INTERVAL '4 hours'\n)\nRETURNING id;",
         "options": {}
       },
       "id": "create-conversation",

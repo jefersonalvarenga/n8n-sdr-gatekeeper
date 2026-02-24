@@ -149,7 +149,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n  COALESCE(c.id::text, 'none') AS id,\n  COALESCE(c.status, 'new') AS status,\n  COALESCE(c.message_count, 0) AS message_count,\n  COALESCE(c.fastapi_session_id, '') AS fastapi_session_id,\n  COALESCE(c.clinic_name, '') AS clinic_name,\n  COALESCE(c.remote_jid, '') AS clinic_phone,\n  CASE WHEN c.id IS NULL THEN true ELSE false END AS is_new\nFROM (SELECT 1) AS dummy\nLEFT JOIN gk_conversations c\n  ON c.remote_jid = '{{ $json.remoteJid }}'\n  AND c.status IN ('active', 'stalled')\nORDER BY c.created_at DESC NULLS LAST\nLIMIT 1;",
+        "query": "SELECT\n  COALESCE(c.id::text, 'none') AS id,\n  COALESCE(c.status, 'new') AS status,\n  COALESCE(c.message_count, 0) AS message_count,\n  COALESCE(c.fastapi_session_id, '') AS fastapi_session_id,\n  COALESCE(c.clinic_name, '') AS clinic_name,\n  COALESCE(c.remote_jid, '') AS clinic_phone,\n  CASE WHEN c.id IS NULL THEN true ELSE false END AS is_new\nFROM (SELECT 1) AS dummy\nLEFT JOIN gk_conversations c\n  ON c.remote_jid = '{{ $json.remoteJid }}'\n  AND c.status IN ('greeting_sent', 'gathering_decisor', 'stalled')\nORDER BY c.created_at DESC NULLS LAST\nLIMIT 1;",
         "options": {}
       },
       "id": "lookup-conversation",
@@ -210,7 +210,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO gk_conversations (remote_jid, push_name, status, evolution_instance, message_count, last_message_at)\nVALUES (\n  '{{ $json.remoteJid }}',\n  '{{ $json.pushName }}',\n  'active',\n  '{{ $json.instanceName }}',\n  1,\n  NOW()\n)\nRETURNING id, status;",
+        "query": "INSERT INTO gk_conversations (remote_jid, push_name, status, evolution_instance, message_count, last_message_at)\nVALUES (\n  '{{ $json.remoteJid }}',\n  '{{ $json.pushName }}',\n  'gathering_decisor',\n  '{{ $json.instanceName }}',\n  1,\n  NOW()\n)\nRETURNING id, status;",
         "options": {}
       },
       "id": "create-conversation",
@@ -228,7 +228,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE gk_conversations\nSET message_count = message_count + 1,\n    last_message_at = NOW(),\n    status = CASE WHEN status = 'stalled' THEN 'active' ELSE status END,\n    expires_at = NOW() + INTERVAL '4 hours'\nWHERE id = '{{ $json.conversationId }}'\nRETURNING id, status;",
+        "query": "UPDATE gk_conversations\nSET message_count = message_count + 1,\n    last_message_at = NOW(),\n    status = CASE WHEN status = 'stalled' THEN 'gathering_decisor' ELSE status END,\n    expires_at = NOW() + INTERVAL '4 hours'\nWHERE id = '{{ $json.conversationId }}'\nRETURNING id, status;",
         "options": {}
       },
       "id": "update-conversation",
@@ -252,6 +252,24 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [2140, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE gk_leads\nSET status = 'gathering_decisor', updated_at = NOW()\nWHERE conversation_id = '{{ $json.conversationId }}'\n  AND status = 'created';",
+        "options": {}
+      },
+      "id": "update-lead-gathering",
+      "name": "Supabase - Atualiza Lead gathering_decisor",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2140, 600],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
     },
     {
       "parameters": {
@@ -553,6 +571,24 @@
           "name": "Postgres SDR Gatekeeper"
         }
       }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE gk_leads\nSET status = 'decisor_captured', updated_at = NOW()\nWHERE conversation_id = '{{ $('Evento - Decisor Capturado?').first().json.conversationId }}';",
+        "options": {}
+      },
+      "id": "update-lead-decisor-captured",
+      "name": "Supabase - Atualiza Lead decisor_captured",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [4680, 820],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
     }
   ],
   "connections": {
@@ -710,9 +746,17 @@
             "node": "Supabase - Busca Histórico",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Supabase - Atualiza Lead gathering_decisor",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
+    },
+    "Supabase - Atualiza Lead gathering_decisor": {
+      "main": [[]]
     },
     "Supabase - Busca Histórico": {
       "main": [
@@ -834,6 +878,20 @@
           }
         ]
       ]
+    },
+    "Supabase - Insere clinic_decisors": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Atualiza Lead decisor_captured",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Atualiza Lead decisor_captured": {
+      "main": [[]]
     }
   },
   "settings": {
