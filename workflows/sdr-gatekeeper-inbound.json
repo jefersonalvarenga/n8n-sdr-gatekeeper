@@ -516,6 +516,43 @@
           "name": "Postgres SDR Gatekeeper"
         }
       }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT place_id, lead_score, ads_group\nFROM gk_leads\nWHERE conversation_id = '{{ $json.conversationId }}'\nLIMIT 1;",
+        "options": {}
+      },
+      "id": "busca-place-id-do-lead",
+      "name": "Supabase - Busca place_id do Lead",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [4220, 820],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO clinic_decisors (\n  place_id,\n  gk_conversation_id,\n  clinic_name,\n  clinic_phone,\n  manager_name,\n  manager_phone,\n  lead_score,\n  ads_group,\n  status\n) VALUES (\n  $gk${{ $json.place_id || '' }}$gk$,\n  '{{ $('Evento - Decisor Capturado?').first().json.conversationId }}',\n  $gk${{ $('Prepara Contexto Unificado').first().json.clinicName || '' }}$gk$,\n  $gk${{ $('Prepara Contexto Unificado').first().json.clinicPhone || '' }}$gk$,\n  $gk${{ $('Processa Resposta FastAPI').first().json.extractedManagerName || '' }}$gk$,\n  $gk${{ $('Processa Resposta FastAPI').first().json.extractedManagerContact || '' }}$gk$,\n  {{ $json.lead_score || 0 }},\n  $gk${{ $json.ads_group || '' }}$gk$,\n  'captured'\n)\nON CONFLICT (manager_phone) WHERE manager_phone IS NOT NULL DO NOTHING;",
+        "options": {}
+      },
+      "id": "insert-clinic-decisors",
+      "name": "Supabase - Insere clinic_decisors",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [4450, 820],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
     }
   ],
   "connections": {
@@ -770,6 +807,28 @@
         [
           {
             "node": "Supabase - Salva Evento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Salva Evento": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Busca place_id do Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Busca place_id do Lead": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Insere clinic_decisors",
             "type": "main",
             "index": 0
           }

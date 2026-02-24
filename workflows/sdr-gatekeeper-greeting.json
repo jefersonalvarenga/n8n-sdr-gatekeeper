@@ -119,15 +119,81 @@
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT * FROM gk_get_pending_leads({{ $json.batchSize }});",
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/pick_next_clinic",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "pick-next-clinic",
+      "name": "Bandit - pick_next_clinic()",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1620, 300],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-has-clinic",
+              "leftValue": "={{ $json[0].out_clinic_phone }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
         "options": {}
       },
-      "id": "fetch-leads",
-      "name": "Supabase - Busca Leads ICP",
+      "id": "has-clinic",
+      "name": "Tem Clínica?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [1850, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO gk_leads (clinic_name, clinic_phone, place_id, lead_score, ads_group, status)\nVALUES (\n  $gk${{ $json[0].out_clinic_name }}$gk$,\n  '{{ $json[0].out_clinic_phone }}',\n  $gk${{ $json[0].out_place_id }}$gk$,\n  {{ $json[0].out_lead_score || 0 }},\n  $gk${{ $json[0].out_ads_group }}$gk$,\n  'pending'\n)\nON CONFLICT DO NOTHING\nRETURNING *;",
+        "options": {}
+      },
+      "id": "insert-gk-lead",
+      "name": "Supabase - Insere Lead",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1620, 300],
+      "position": [2080, 300],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -146,7 +212,7 @@
           },
           "conditions": [
             {
-              "id": "condition-has-leads",
+              "id": "condition-has-lead-id",
               "leftValue": "={{ $json.id }}",
               "rightValue": "",
               "operator": {
@@ -160,33 +226,20 @@
         "options": {}
       },
       "id": "has-leads",
-      "name": "Tem Leads?",
+      "name": "Lead Inserido?",
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2,
-      "position": [1850, 300]
+      "position": [2310, 300]
     },
     {
       "parameters": {
-        "options": {
-          "reset": false
-        },
-        "batchSize": 1
-      },
-      "id": "split-batches",
-      "name": "SplitInBatches",
-      "type": "n8n-nodes-base.splitInBatches",
-      "typeVersion": 3,
-      "position": [2080, 300]
-    },
-    {
-      "parameters": {
-        "jsCode": "// ============================================\n// Seleciona template aleatório e personaliza\n// Calcula delay aleatório para cadência humanizada\n// ============================================\n\nconst templates = [\n  'Oi, tudo bem? Estou tentando falar com alguém da {clinic_name}. Você poderia me ajudar?',\n  'Olá! Boa tarde! Estou buscando o responsável da {clinic_name}, consegue me direcionar?',\n  'Oi! Meu nome é Sofia, da EasyScale. Estou tentando contato com a {clinic_name}, pode me ajudar?',\n  'Olá, tudo bem? Gostaria de falar com o gestor da {clinic_name}. Você sabe quem é?',\n  'Oi! Sou a Sofia da EasyScale. Conseguiria me ajudar a falar com alguém da direção da {clinic_name}?',\n  'Olá! Estou entrando em contato com a {clinic_name}. Poderia me indicar quem cuida da parte de gestão?',\n  'Oi, tudo bem? Aqui é a Sofia. Estou tentando um contato com a {clinic_name}, pode me dar uma mão?',\n  'Olá! Gostaria de conversar com alguém da {clinic_name} sobre uma oportunidade. Quem seria a melhor pessoa?'\n];\n\nconst lead = $input.first().json;\nconst config = $('Atingiu Cap?').first().json;\n\n// Template aleatório\nconst idx = Math.floor(Math.random() * templates.length);\nconst message = templates[idx].replace(/{clinic_name}/g, lead.clinic_name);\n\n// Delay aleatório entre min e max\nconst delayS = config.minDelayS + Math.floor(Math.random() * (config.maxDelayS - config.minDelayS));\n\nreturn [{\n  json: {\n    ...lead,\n    greetingMessage: message,\n    templateIndex: idx,\n    delaySec: delayS\n  }\n}];"
+        "jsCode": "// ============================================\n// Seleciona template aleatório e personaliza\n// Calcula delay aleatório para cadência humanizada\n// ============================================\n\nconst templates = [\n  'Oi, tudo bem? Estou tentando falar com alguém da {clinic_name}. Você poderia me ajudar?',\n  'Olá! Boa tarde! Estou buscando o responsável da {clinic_name}, consegue me direcionar?',\n  'Oi! Meu nome é Sofia, da EasyScale. Estou tentando contato com a {clinic_name}, pode me ajudar?',\n  'Olá, tudo bem? Gostaria de falar com o gestor da {clinic_name}. Você sabe quem é?',\n  'Oi! Sou a Sofia da EasyScale. Conseguiria me ajudar a falar com alguém da direção da {clinic_name}?',\n  'Olá! Estou entrando em contato com a {clinic_name}. Poderia me indicar quem cuida da parte de gestão?',\n  'Oi, tudo bem? Aqui é a Sofia. Estou tentando um contato com a {clinic_name}, pode me dar uma mão?',\n  'Olá! Gostaria de conversar com alguém da {clinic_name} sobre uma oportunidade. Quem seria a melhor pessoa?'\n];\n\nconst lead = $input.first().json;\nconst config = $('Atingiu Cap?').first().json;\n\n// Template aleatório\nconst idx = Math.floor(Math.random() * templates.length);\nconst message = templates[idx].replace(/{clinic_name}/g, lead.clinic_name);\n\n// Delay aleatório entre min e max\nconst delayS = config.minDelayS + Math.floor(Math.random() * (config.maxDelayS - config.minDelayS));\n\n// remote_jid = clinic_phone + @s.whatsapp.net\nconst remote_jid = lead.clinic_phone + '@s.whatsapp.net';\n\nreturn [{\n  json: {\n    ...lead,\n    remote_jid,\n    greetingMessage: message,\n    templateIndex: idx,\n    delaySec: delayS\n  }\n}];"
       },
       "id": "select-template",
       "name": "Seleciona Template",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2310, 300]
+      "position": [2540, 300]
     },
     {
       "parameters": {
@@ -197,7 +250,7 @@
       "name": "Wait - Delay Aleatório",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [2540, 300]
+      "position": [2770, 300]
     },
     {
       "parameters": {
@@ -209,7 +262,7 @@
       "name": "Marca Lead Processando",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [2770, 300],
+      "position": [3000, 300],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -245,7 +298,7 @@
       "name": "Evolution - Envia Greeting",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3000, 300],
+      "position": [3230, 300],
       "retryOnFail": true,
       "maxTries": 2,
       "waitBetweenTries": 3000
@@ -260,7 +313,7 @@
       "name": "Supabase - Cria Conversa",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [3230, 300],
+      "position": [3460, 300],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -278,7 +331,7 @@
       "name": "Supabase - Salva Msg Outbound",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [3460, 200],
+      "position": [3690, 200],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -296,7 +349,7 @@
       "name": "Supabase - Atualiza Lead",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [3460, 400],
+      "position": [3690, 400],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -365,36 +418,47 @@
       "main": [
         [
           {
-            "node": "Supabase - Busca Leads ICP",
+            "node": "Bandit - pick_next_clinic()",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Supabase - Busca Leads ICP": {
+    "Bandit - pick_next_clinic()": {
       "main": [
         [
           {
-            "node": "Tem Leads?",
+            "node": "Tem Clínica?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Tem Leads?": {
+    "Tem Clínica?": {
       "main": [
         [
           {
-            "node": "SplitInBatches",
+            "node": "Supabase - Insere Lead",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "SplitInBatches": {
+    "Supabase - Insere Lead": {
+      "main": [
+        [
+          {
+            "node": "Lead Inserido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Inserido?": {
       "main": [
         [
           {
@@ -459,17 +523,6 @@
           },
           {
             "node": "Supabase - Atualiza Lead",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Supabase - Salva Msg Outbound": {
-      "main": [
-        [
-          {
-            "node": "SplitInBatches",
             "type": "main",
             "index": 0
           }
