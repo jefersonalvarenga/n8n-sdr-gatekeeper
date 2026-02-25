@@ -156,43 +156,13 @@
     },
     {
       "parameters": {
-        "jsCode": "// Supabase RPC via HTTP retorna array [{...}]\n// Extrai o primeiro elemento para que os nós seguintes usem $json.out_xxx diretamente\nconst result = $input.first().json;\nconst clinic = Array.isArray(result) ? result[0] : result;\n\nif (!clinic || !clinic.out_clinic_phone) {\n  return [{ json: { out_clinic_phone: null } }];\n}\n\nreturn [{ json: clinic }];"
+        "jsCode": "// Supabase RPC via HTTP retorna array [{...}]\n// Extrai o primeiro elemento e valida existência de clínica.\n// Retornar [] para execução (sem Filter node — evita problema de conditions JSON)\nconst result = $input.first().json;\nconst clinic = Array.isArray(result) ? result[0] : result;\n\n// Sem clínica disponível: para execução silenciosamente\nif (!clinic || !clinic.out_clinic_phone) {\n  return [];\n}\n\nreturn [{ json: clinic }];"
       },
       "id": "normalize-bandit",
-      "name": "Normaliza Resposta Bandit",
+      "name": "Tem Clínica?",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [1850, 300]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "condition-has-clinic",
-              "leftValue": "={{ $json.out_clinic_phone }}",
-              "rightValue": "",
-              "operator": {
-                "type": "string",
-                "operation": "isNotEmpty",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "has-clinic",
-      "name": "Tem Clínica?",
-      "type": "n8n-nodes-base.filter",
-      "typeVersion": 2,
-      "position": [2080, 300]
     },
     {
       "parameters": {
@@ -437,17 +407,6 @@
       ]
     },
     "Bandit - pick_next_clinic()": {
-      "main": [
-        [
-          {
-            "node": "Normaliza Resposta Bandit",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Normaliza Resposta Bandit": {
       "main": [
         [
           {
