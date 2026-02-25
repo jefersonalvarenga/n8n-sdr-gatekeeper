@@ -185,30 +185,11 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "condition-has-lead-id",
-              "leftValue": "={{ $json.id }}",
-              "rightValue": "",
-              "operator": {
-                "type": "string",
-                "operation": "isNotEmpty"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
+        "jsCode": "// ON CONFLICT DO NOTHING retorna 0 linhas se lead já existe (duplicata)\n// Retorna [] para parar execução silenciosamente nesse caso\nconst lead = $input.first().json;\n\nif (!lead || !lead.id) {\n  return [];\n}\n\nreturn [{ json: lead }];"
       },
       "id": "has-leads",
       "name": "Lead Inserido?",
-      "type": "n8n-nodes-base.filter",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [2540, 300]
     },
