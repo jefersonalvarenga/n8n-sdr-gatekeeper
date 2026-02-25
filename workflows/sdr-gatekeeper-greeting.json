@@ -126,11 +126,11 @@
           "parameters": [
             {
               "name": "apikey",
-              "value": "={{ $env.SUPABASE_SERVICE_KEY }}"
+              "value": "={{ $env.SUPABASE_KEY }}"
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+              "value": "=Bearer {{ $env.SUPABASE_KEY }}"
             },
             {
               "name": "Content-Type",
@@ -179,7 +179,8 @@
               "rightValue": "",
               "operator": {
                 "type": "string",
-                "operation": "isNotEmpty"
+                "operation": "isNotEmpty",
+                "singleValue": true
               }
             }
           ],
