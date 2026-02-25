@@ -12,7 +12,10 @@
       "name": "Webhook - Evolution API",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [250, 300],
+      "position": [
+        250,
+        300
+      ],
       "webhookId": "sdr-gatekeeper-inbound"
     },
     {
@@ -23,7 +26,10 @@
       "name": "Parse Evolution Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [480, 300]
+      "position": [
+        480,
+        300
+      ]
     },
     {
       "parameters": {
@@ -53,7 +59,10 @@
       "name": "Filtro - Mensagem Válida?",
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2,
-      "position": [700, 300]
+      "position": [
+        700,
+        300
+      ]
     },
     {
       "parameters": {
@@ -82,7 +91,10 @@
       "name": "É Reset?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [930, 300]
+      "position": [
+        930,
+        300
+      ]
     },
     {
       "parameters": {
@@ -94,7 +106,10 @@
       "name": "Supabase - Reset Conversa",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1200, 100],
+      "position": [
+        1200,
+        100
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -130,7 +145,10 @@
       "name": "Evolution - Confirma Reset",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1470, 100]
+      "position": [
+        1470,
+        100
+      ]
     },
     {
       "parameters": {
@@ -144,7 +162,10 @@
       "name": "Respond - Reset OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1740, 100]
+      "position": [
+        1740,
+        100
+      ]
     },
     {
       "parameters": {
@@ -156,7 +177,10 @@
       "name": "Supabase - Busca Conversa",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1200, 400],
+      "position": [
+        1200,
+        400
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -175,7 +199,10 @@
       "name": "Merge - Contexto da Conversa",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1430, 400]
+      "position": [
+        1430,
+        400
+      ]
     },
     {
       "parameters": {
@@ -205,7 +232,10 @@
       "name": "Nova Conversa?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1660, 400]
+      "position": [
+        1660,
+        400
+      ]
     },
     {
       "parameters": {
@@ -217,7 +247,10 @@
       "name": "Supabase - Cria Conversa",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1900, 300],
+      "position": [
+        1900,
+        300
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -235,7 +268,10 @@
       "name": "Supabase - Atualiza Conversa",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1900, 500],
+      "position": [
+        1900,
+        500
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -251,7 +287,10 @@
       "name": "Prepara Contexto Unificado",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2140, 400]
+      "position": [
+        2140,
+        400
+      ]
     },
     {
       "parameters": {
@@ -263,7 +302,10 @@
       "name": "Supabase - Atualiza Lead gathering_decisor",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [2140, 600],
+      "position": [
+        2140,
+        600
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -281,7 +323,10 @@
       "name": "Supabase - Salva Msg Inbound",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [2370, 260],
+      "position": [
+        2370,
+        260
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -299,7 +344,10 @@
       "name": "Supabase - Busca Histórico",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [2370, 540],
+      "position": [
+        2370,
+        540
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -316,7 +364,10 @@
       "name": "Prepara Payload FastAPI",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2600, 540]
+      "position": [
+        2600,
+        540
+      ]
     },
     {
       "parameters": {
@@ -351,32 +402,41 @@
       "name": "HTTP - FastAPI Gatekeeper",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2830, 540],
+      "position": [
+        2830,
+        540
+      ],
       "retryOnFail": true,
       "maxTries": 2,
       "waitBetweenTries": 2000
     },
     {
       "parameters": {
-        "jsCode": "// ============================================\n// Processa resposta do FastAPI - Contrato Real\n// Response: {\n//   response_message: string,\n//   should_send_message: boolean,\n//   conversation_stage: string,  ← vocabulário interno do agente\n//   extracted_manager_contact: string|null,\n//   extracted_manager_name: string|null\n// }\n//\n// Mapeamento de stages (FastAPI interno → pipeline SDR):\n//   opening / requesting / handling_objection → gathering_decisor\n//   success                                   → decisor_captured\n//   failed                                    → denied\n// ============================================\n\nconst response = $input.first().json;\nconst payload = $('Prepara Payload FastAPI').first().json;\n\nconst body = response.body || response;\n\nconst responseMessage = body.response_message || '';\nconst shouldSendMessage = body.should_send_message === true;\nconst extractedManagerContact = body.extracted_manager_contact || null;\nconst extractedManagerName = body.extracted_manager_name || null;\n\n// Traduz stage interno do GatekeeperAgent para stage do pipeline SDR\nconst stageMap = {\n  'opening': 'gathering_decisor',\n  'requesting': 'gathering_decisor',\n  'handling_objection': 'gathering_decisor',\n  'success': 'decisor_captured',\n  'failed': 'denied'\n};\nconst rawStage = body.conversation_stage || 'requesting';\nconst conversationStage = stageMap[rawStage] || 'gathering_decisor';\n\nreturn [{\n  json: {\n    conversationId: payload.conversationId,\n    remoteJid: payload.remoteJid,\n    instanceName: payload.instanceName,\n    responseMessage,\n    shouldSendMessage,\n    conversationStage,\n    extractedManagerContact,\n    extractedManagerName\n  }\n}];"
+        "jsCode": "// ============================================\n// Processa resposta do FastAPI - Contrato Real\n// Response: {\n//   response_message: string,\n//   should_send_message: boolean,\n//   conversation_stage: string,  ← vocabulário interno do agente\n//   extracted_manager_contact: string|null,\n//   extracted_manager_email: string|null,\n//   extracted_manager_name: string|null\n// }\n//\n// Mapeamento de stages (FastAPI interno → pipeline SDR):\n//   opening / requesting / handling_objection → gathering_decisor\n//   success                                   → decisor_captured\n//   failed                                    → denied\n// ============================================\n\nconst response = $input.first().json;\nconst payload = $('Prepara Payload FastAPI').first().json;\n\nconst body = response.body || response;\n\nconst responseMessage = body.response_message || '';\nconst shouldSendMessage = body.should_send_message === true;\nconst extractedManagerContact = body.extracted_manager_contact || null;\nconst extractedManagerEmail = body.extracted_manager_email || null;\nconst extractedManagerName = body.extracted_manager_name || null;\n\n// Traduz stage interno do GatekeeperAgent para stage do pipeline SDR\nconst stageMap = {\n  'opening': 'gathering_decisor',\n  'requesting': 'gathering_decisor',\n  'handling_objection': 'gathering_decisor',\n  'success': 'decisor_captured',\n  'failed': 'denied'\n};\nconst rawStage = body.conversation_stage || 'requesting';\nconst conversationStage = stageMap[rawStage] || 'gathering_decisor';\n\nreturn [{\n  json: {\n    conversationId: payload.conversationId,\n    remoteJid: payload.remoteJid,\n    instanceName: payload.instanceName,\n    responseMessage,\n    shouldSendMessage,\n    conversationStage,\n    extractedManagerContact,\n    extractedManagerEmail,\n    extractedManagerName\n  }\n}];"
       },
       "id": "process-fastapi-response",
       "name": "Processa Resposta FastAPI",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3060, 540]
+      "position": [
+        3060,
+        540
+      ]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE gk_conversations\nSET\n  status = '{{ $json.conversationStage }}',\n  decisor_name = CASE\n    WHEN {{ $json.extractedManagerName ? 'true' : 'false' }} = 'true'\n    THEN $gk${{ $json.extractedManagerName }}$gk$\n    ELSE decisor_name\n  END,\n  decisor_phone = CASE\n    WHEN {{ $json.extractedManagerContact ? 'true' : 'false' }} = 'true'\n    THEN $gk${{ $json.extractedManagerContact }}$gk$\n    ELSE decisor_phone\n  END\nWHERE id = '{{ $json.conversationId }}';",
+        "query": "UPDATE gk_conversations\nSET\n  status = '{{ $json.conversationStage }}',\n  decisor_name = CASE\n    WHEN {{ $json.extractedManagerName ? 'true' : 'false' }} = 'true'\n    THEN $gk${{ $json.extractedManagerName }}$gk$\n    ELSE decisor_name\n  END,\n  decisor_phone = CASE\n    WHEN {{ $json.extractedManagerContact ? 'true' : 'false' }} = 'true'\n    THEN $gk${{ $json.extractedManagerContact }}$gk$\n    ELSE decisor_phone\n  END,\n  decisor_email = CASE\n    WHEN {{ $json.extractedManagerEmail ? 'true' : 'false' }} = 'true'\n    THEN $gk${{ $json.extractedManagerEmail }}$gk$\n    ELSE decisor_email\n  END\nWHERE id = '{{ $json.conversationId }}';",
         "options": {}
       },
       "id": "update-conversation-status",
       "name": "Supabase - Atualiza Status",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [3300, 400],
+      "position": [
+        3300,
+        400
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -394,7 +454,10 @@
       "name": "Supabase - Salva Msg Outbound",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [3300, 600],
+      "position": [
+        3300,
+        600
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -430,7 +493,10 @@
       "name": "Deve Enviar?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [3530, 540]
+      "position": [
+        3530,
+        540
+      ]
     },
     {
       "parameters": {
@@ -460,7 +526,10 @@
       "name": "Evolution API - Envia Resposta",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3760, 440],
+      "position": [
+        3760,
+        440
+      ],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 3000
@@ -477,7 +546,10 @@
       "name": "Respond OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [3990, 440]
+      "position": [
+        3990,
+        440
+      ]
     },
     {
       "parameters": {
@@ -491,7 +563,10 @@
       "name": "Respond - Sem Resposta",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [3760, 660]
+      "position": [
+        3760,
+        660
+      ]
     },
     {
       "parameters": {
@@ -505,17 +580,23 @@
       "name": "Respond - Ignorada",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [700, 500]
+      "position": [
+        700,
+        500
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// Log de evento: decisor/gestor capturado\nconst data = $('Processa Resposta FastAPI').first().json;\n\nif (data.conversationStage === 'decisor_captured' && (data.extractedManagerName || data.extractedManagerContact)) {\n  return [{\n    json: {\n      conversationId: data.conversationId,\n      eventType: 'decisor_info_received',\n      eventData: JSON.stringify({\n        manager_name: data.extractedManagerName,\n        manager_contact: data.extractedManagerContact\n      })\n    }\n  }];\n}\n\n// Sem evento especial\nreturn [];"
+        "jsCode": "// Log de evento: decisor/gestor capturado (por phone ou email)\nconst data = $('Processa Resposta FastAPI').first().json;\n\nif (data.conversationStage === 'decisor_captured' &&\n    (data.extractedManagerName || data.extractedManagerContact || data.extractedManagerEmail)) {\n  return [{\n    json: {\n      conversationId: data.conversationId,\n      eventType: 'decisor_info_received',\n      eventData: JSON.stringify({\n        manager_name: data.extractedManagerName,\n        manager_contact: data.extractedManagerContact,\n        manager_email: data.extractedManagerEmail\n      })\n    }\n  }];\n}\n\n// Sem evento especial\nreturn [];"
       },
       "id": "check-decisor-event",
       "name": "Evento - Decisor Capturado?",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3760, 820]
+      "position": [
+        3760,
+        820
+      ]
     },
     {
       "parameters": {
@@ -527,7 +608,10 @@
       "name": "Supabase - Salva Evento",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [3990, 820],
+      "position": [
+        3990,
+        820
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -545,7 +629,10 @@
       "name": "Supabase - Busca place_id do Lead",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [4220, 820],
+      "position": [
+        4220,
+        820
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -557,14 +644,17 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO clinic_decisors (\n  place_id,\n  gk_conversation_id,\n  clinic_name,\n  clinic_phone,\n  manager_name,\n  manager_phone,\n  lead_score,\n  ads_group,\n  status\n) VALUES (\n  $gk${{ $json.place_id || '' }}$gk$,\n  '{{ $('Evento - Decisor Capturado?').first().json.conversationId }}',\n  $gk${{ $('Prepara Contexto Unificado').first().json.clinicName || '' }}$gk$,\n  $gk${{ $('Prepara Contexto Unificado').first().json.clinicPhone || '' }}$gk$,\n  $gk${{ $('Processa Resposta FastAPI').first().json.extractedManagerName || '' }}$gk$,\n  $gk${{ $('Processa Resposta FastAPI').first().json.extractedManagerContact || '' }}$gk$,\n  {{ $json.lead_score || 0 }},\n  $gk${{ $json.ads_group || '' }}$gk$,\n  'captured'\n)\nON CONFLICT (manager_phone) WHERE manager_phone IS NOT NULL DO NOTHING;",
+        "query": "INSERT INTO clinic_decisors (\n  place_id,\n  gk_conversation_id,\n  clinic_name,\n  clinic_phone,\n  manager_name,\n  manager_phone,\n  manager_email,\n  lead_score,\n  ads_group,\n  status\n) VALUES (\n  $gk${{ $json.place_id || '' }}$gk$,\n  '{{ $('Evento - Decisor Capturado?').first().json.conversationId }}',\n  $gk${{ $('Prepara Contexto Unificado').first().json.clinicName || '' }}$gk$,\n  $gk${{ $('Prepara Contexto Unificado').first().json.clinicPhone || '' }}$gk$,\n  $gk${{ $('Processa Resposta FastAPI').first().json.extractedManagerName || '' }}$gk$,\n  $gk${{ $('Processa Resposta FastAPI').first().json.extractedManagerContact || '' }}$gk$,\n  $gk${{ $('Processa Resposta FastAPI').first().json.extractedManagerEmail || '' }}$gk$,\n  {{ $json.lead_score || 0 }},\n  $gk${{ $json.ads_group || '' }}$gk$,\n  'captured'\n)\nON CONFLICT (manager_phone) WHERE manager_phone IS NOT NULL DO NOTHING;",
         "options": {}
       },
       "id": "insert-clinic-decisors",
       "name": "Supabase - Insere clinic_decisors",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [4450, 820],
+      "position": [
+        4450,
+        820
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -582,7 +672,10 @@
       "name": "Supabase - Atualiza Lead decisor_captured",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [4680, 820],
+      "position": [
+        4680,
+        820
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -756,7 +849,9 @@
       ]
     },
     "Supabase - Atualiza Lead gathering_decisor": {
-      "main": [[]]
+      "main": [
+        []
+      ]
     },
     "Supabase - Busca Histórico": {
       "main": [
@@ -891,7 +986,9 @@
       ]
     },
     "Supabase - Atualiza Lead decisor_captured": {
-      "main": [[]]
+      "main": [
+        []
+      ]
     }
   },
   "settings": {
