@@ -682,6 +682,68 @@
           "name": "Postgres SDR Gatekeeper"
         }
       }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-failed",
+              "leftValue": "={{ $json.rawStage }}",
+              "rightValue": "failed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "condition-success",
+              "leftValue": "={{ $json.rawStage }}",
+              "rightValue": "success",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "check-conversation-ended",
+      "name": "Conversa Encerrada?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3300,
+        980
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.easyscale.co/webhook/sdr-gatekeeper-outbound",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"source\": \"inbound_cycle\",\n  \"trigger_reason\": {{ JSON.stringify($('Processa Resposta FastAPI').first().json.rawStage) }}\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "trigger-outbound-cycle",
+      "name": "HTTP - Dispara Outbound",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3530,
+        980
+      ],
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
@@ -908,6 +970,11 @@
             "node": "Evento - Decisor Capturado?",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Conversa Encerrada?",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -986,6 +1053,23 @@
       ]
     },
     "Supabase - Atualiza Lead decisor_captured": {
+      "main": [
+        []
+      ]
+    },
+    "Conversa Encerrada?": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Dispara Outbound",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "HTTP - Dispara Outbound": {
       "main": [
         []
       ]
