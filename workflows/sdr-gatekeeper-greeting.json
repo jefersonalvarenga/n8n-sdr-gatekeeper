@@ -16,7 +16,10 @@
       "name": "Cron - Greeting 15min",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [250, 300]
+      "position": [
+        250,
+        300
+      ]
     },
     {
       "parameters": {
@@ -26,7 +29,10 @@
       "name": "Horário Comercial?",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [480, 300]
+      "position": [
+        480,
+        300
+      ]
     },
     {
       "parameters": {
@@ -56,7 +62,10 @@
       "name": "Dentro do Horário?",
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2,
-      "position": [700, 300]
+      "position": [
+        700,
+        300
+      ]
     },
     {
       "parameters": {
@@ -68,7 +77,10 @@
       "name": "Supabase - Cap Diário",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [930, 300],
+      "position": [
+        930,
+        300
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -85,7 +97,10 @@
       "name": "Atingiu Cap?",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1160, 300]
+      "position": [
+        1160,
+        300
+      ]
     },
     {
       "parameters": {
@@ -115,7 +130,10 @@
       "name": "Abaixo do Cap?",
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2,
-      "position": [1390, 300]
+      "position": [
+        1390,
+        300
+      ]
     },
     {
       "parameters": {
@@ -149,7 +167,10 @@
       "name": "Bandit - pick_next_clinic()",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1620, 300],
+      "position": [
+        1620,
+        300
+      ],
       "retryOnFail": true,
       "maxTries": 2,
       "waitBetweenTries": 2000
@@ -162,7 +183,10 @@
       "name": "Tem Clínica?",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1850, 300]
+      "position": [
+        1850,
+        300
+      ]
     },
     {
       "parameters": {
@@ -174,7 +198,10 @@
       "name": "Supabase - Insere Lead",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [2310, 300],
+      "position": [
+        2310,
+        300
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -191,7 +218,10 @@
       "name": "Lead Inserido?",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2540, 300]
+      "position": [
+        2540,
+        300
+      ]
     },
     {
       "parameters": {
@@ -201,7 +231,10 @@
       "name": "Seleciona Template",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2770, 300]
+      "position": [
+        2770,
+        300
+      ]
     },
     {
       "parameters": {
@@ -212,7 +245,10 @@
       "name": "Wait - Delay Aleatório",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [3000, 300]
+      "position": [
+        3000,
+        300
+      ]
     },
     {
       "parameters": {
@@ -224,7 +260,10 @@
       "name": "Marca Lead Processando",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [3230, 300],
+      "position": [
+        3230,
+        300
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -260,7 +299,10 @@
       "name": "Evolution - Envia Greeting",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3460, 300],
+      "position": [
+        3460,
+        300
+      ],
       "retryOnFail": true,
       "maxTries": 2,
       "waitBetweenTries": 3000
@@ -275,7 +317,10 @@
       "name": "Supabase - Cria Conversa",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [3690, 300],
+      "position": [
+        3690,
+        300
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -293,7 +338,10 @@
       "name": "Supabase - Salva Msg Outbound",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [3920, 200],
+      "position": [
+        3920,
+        200
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -311,13 +359,44 @@
       "name": "Supabase - Atualiza Lead",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [3920, 400],
+      "position": [
+        3920,
+        400
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
           "name": "Postgres SDR Gatekeeper"
         }
       }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sdr-gatekeeper-outbound",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-outbound-trigger",
+      "name": "Webhook - Dispara Outbound",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        250,
+        500
+      ],
+      "webhookId": "sdr-gatekeeper-outbound"
+    },
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual - Teste",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        250,
+        700
+      ]
     }
   ],
   "connections": {
@@ -485,6 +564,28 @@
           },
           {
             "node": "Supabase - Atualiza Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Dispara Outbound": {
+      "main": [
+        [
+          {
+            "node": "Horário Comercial?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual - Teste": {
+      "main": [
+        [
+          {
+            "node": "Horário Comercial?",
             "type": "main",
             "index": 0
           }
