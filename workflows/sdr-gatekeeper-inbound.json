@@ -148,7 +148,8 @@
       "position": [
         1470,
         100
-      ]
+      ],
+      "disabled": true
     },
     {
       "parameters": {
@@ -724,7 +725,7 @@
         980
       ]
     },
-        {
+    {
       "parameters": {
         "operation": "executeQuery",
         "query": "SELECT direction, content, stage, created_at\nFROM gk_messages\nWHERE conversation_id = '{{ $(\"Processa Resposta FastAPI\").first().json.conversationId }}'\nORDER BY created_at ASC;",
@@ -846,10 +847,24 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3530,
+        3760,
         980
       ],
       "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "amount": 10,
+        "unit": "seconds"
+      },
+      "id": "wait-reset-cooldown",
+      "name": "Wait - Reset Cooldown",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3530,
+        980
+      ]
     }
   ],
   "connections": {
@@ -1167,7 +1182,7 @@
       "main": [
         [
           {
-            "node": "HTTP - Dispara Outbound",
+            "node": "Wait - Reset Cooldown",
             "type": "main",
             "index": 0
           },
@@ -1232,6 +1247,17 @@
     "Supabase - Salva Descoberta": {
       "main": [
         []
+      ]
+    },
+    "Wait - Reset Cooldown": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Dispara Outbound",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
