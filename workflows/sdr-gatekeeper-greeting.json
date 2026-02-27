@@ -226,14 +226,50 @@
     },
     {
       "parameters": {
-        "jsCode": "// ============================================\n// Seleciona template aleatório e personaliza\n// Calcula delay aleatório para cadência humanizada\n// ============================================\n\nconst templates = [\n  'Oi, tudo bem? Estou tentando falar com alguém da {clinic_name}. Você poderia me ajudar?',\n  'Olá! Boa tarde! Estou buscando o responsável da {clinic_name}, consegue me direcionar?',\n  'Oi! Meu nome é Iris, da EasyScale. Estou tentando contato com a {clinic_name}, pode me ajudar?',\n  'Olá, tudo bem? Gostaria de falar com o gestor da {clinic_name}. Você sabe quem é?',\n  'Oi! Sou a Iris da EasyScale. Conseguiria me ajudar a falar com alguém da direção da {clinic_name}?',\n  'Olá! Estou entrando em contato com a {clinic_name}. Poderia me indicar quem cuida da parte de gestão?',\n  'Oi, tudo bem? Aqui é a Iris. Estou tentando um contato com a {clinic_name}, pode me dar uma mão?',\n  'Olá! Gostaria de conversar com alguém da {clinic_name} sobre uma oportunidade. Quem seria a melhor pessoa?'\n];\n\nconst lead = $input.first().json;\nconst config = $('Atingiu Cap?').first().json;\n\n// Template aleatório\nconst idx = Math.floor(Math.random() * templates.length);\nconst message = templates[idx].replace(/{clinic_name}/g, lead.clinic_name);\n\n// Delay aleatório entre min e max (fallback seguro se config não disponível)\nconst minDelay = config?.minDelayS ?? 30;\nconst maxDelay = config?.maxDelayS ?? 60;\nconst delayS = minDelay + Math.floor(Math.random() * Math.max(1, maxDelay - minDelay));\n\n// TEST_PHONE: se definido, redireciona TODAS as mensagens para esse número.\n// Permite testar o ciclo completo sem contatar clínicas reais.\n// Em produção: deixar vazio ou não definir.\nconst testPhone = $env.TEST_PHONE || '';\nconst remote_jid = testPhone\n  ? testPhone.replace(/\\D/g, '') + '@s.whatsapp.net'\n  : lead.clinic_phone + '@s.whatsapp.net';\n\nreturn [{\n  json: {\n    ...lead,\n    remote_jid,\n    greetingMessage: message,\n    templateIndex: idx,\n    delaySec: delayS\n  }\n}];"
+        "method": "POST",
+        "url": "https://ade.easyscale.co/v1/sdr/gatekeeper",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.FASTAPI_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"clinic_name\": {{ JSON.stringify($json.clinic_name) }},\n  \"clinic_phone\": {{ JSON.stringify($json.clinic_phone) }},\n  \"conversation_history\": [],\n  \"latest_message\": null,\n  \"current_weekday\": {{ (new Date().getDay() + 6) % 7 }}\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "fastapi-gera-greeting",
+      "name": "FastAPI - Gera Greeting",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2770,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Extrai mensagem gerada pela SDR Iris (FastAPI)\n// Calcula delay aleatório para cadência humanizada\n// ============================================\n\nconst lead = $('Lead Inserido?').first().json;\nconst fastapi = $input.first().json;\nconst config = $('Atingiu Cap?').first().json;\n\n// Mensagem gerada pela SDR Iris via FastAPI\nconst message = fastapi.response_message;\n\n// Sem mensagem: para execução silenciosamente\nif (!message) {\n  return [];\n}\n\n// Delay aleatório entre min e max (fallback seguro se config não disponível)\nconst minDelay = config?.minDelayS ?? 30;\nconst maxDelay = config?.maxDelayS ?? 60;\nconst delayS = minDelay + Math.floor(Math.random() * Math.max(1, maxDelay - minDelay));\n\n// TEST_PHONE: se definido, redireciona TODAS as mensagens para esse número.\n// Permite testar o ciclo completo sem contatar clínicas reais.\n// Em produção: deixar vazio ou não definir.\nconst testPhone = $env.TEST_PHONE || '';\nconst remote_jid = testPhone\n  ? testPhone.replace(/\\D/g, '') + '@s.whatsapp.net'\n  : lead.clinic_phone + '@s.whatsapp.net';\n\nreturn [{\n  json: {\n    ...lead,\n    remote_jid,\n    greetingMessage: message,\n    delaySec: delayS\n  }\n}];"
       },
       "id": "select-template",
       "name": "Seleciona Template",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2770,
+        3010,
         300
       ]
     },
@@ -501,6 +537,17 @@
       ]
     },
     "Lead Inserido?": {
+      "main": [
+        [
+          {
+            "node": "FastAPI - Gera Greeting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FastAPI - Gera Greeting": {
       "main": [
         [
           {
