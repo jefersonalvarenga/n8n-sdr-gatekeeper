@@ -749,7 +749,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Agrega mensagens e monta prompt para o GLM avaliar a conversa\nconst messages = $input.all().map(item => item.json);\nconst gkData = $(\"Processa Resposta FastAPI\").first().json;\nconst clinicName = $(\"Prepara Contexto Unificado\").first().json.clinicName || \"Clínica\";\n\nconst conversationText = messages\n  .filter(msg => msg.content && msg.content.trim())\n  .map(msg => {\n    const speaker = msg.direction === \"outbound\" ? \"Sofia (SDR)\" : \"Recepcionista\";\n    return speaker + \": \" + msg.content.trim();\n  })\n  .join(\"\\n\");\n\nconst systemPrompt = \"Você é um avaliador de conversas de SDR (Sales Development Rep).\\n\" +\n  \"Analise a conversa entre Sofia (SDR da EasyScale) e uma recepcionista de clínica médica.\\n\" +\n  \"Objetivo da Sofia: coletar o contato (WhatsApp ou email) do gestor/decisor da clínica.\\n\\n\" +\n  \"Cenários conhecidos (para referência):\\n\" +\n  \"- cooperative: recepcionista cooperativa, passa contato diretamente\\n\" +\n  \"- ask_data_then_pass: pede dados da Sofia antes de passar contato\\n\" +\n  \"- reverse_contact: pede que Sofia deixe contato para o gestor ligar\\n\" +\n  \"- email_only: aceita apenas email\\n\" +\n  \"- soft_refusal: evasiva, tenta adiar\\n\" +\n  \"- hard_refusal: recusa firme, baseada em política\\n\\n\" +\n  \"Retorne SOMENTE um JSON válido (sem markdown, sem blocos de código):\\n\" +\n  \"IMPORTANTE: quality_score deve ser um número entre 0.0 e 1.0 (ex: 0.3, 0.7, 1.0).\\n\" +\n  \"{\\n\" +\n  \"  \\\"quality_score\\\": 0.0,\\n\" +\n  \"  \\\"outcome_label\\\": \\\"SUCCESS\\\",\\n\" +\n  \"  \\\"outcome_reason\\\": \\\"string curta\\\",\\n\" +\n  \"  \\\"sofia_did_well\\\": [\\\"ponto1\\\"],\\n\" +\n  \"  \\\"sofia_should_improve\\\": [\\\"ponto1\\\"],\\n\" +\n  \"  \\\"is_new_pattern\\\": false,\\n\" +\n  \"  \\\"suggested_scenario_name\\\": \\\"\\\"\\n\" +\n  \"}\\n\\n\" +\n  \"Valores válidos para outcome_label:\\n\" +\n  \"SUCCESS, EMAIL_SUCCESS, GRACEFUL_DENIED, SLOW_EXIT, STUCK, BLOCKED_RISK\";\n\nconst userMessage = \"Stage final do sistema: \" + gkData.rawStage + \"\\nClínica: \" + clinicName + \"\\n\\nConversa:\\n\" + conversationText;\n\nreturn [{\n  json: {\n    conversationId: gkData.conversationId,\n    remoteJid: $(\"Prepara Contexto Unificado\").first().json.remoteJid || \"\",\n    clinicName,\n    rawStage: gkData.rawStage,\n    conversationText,\n    glmMessages: [\n      { role: \"system\", content: systemPrompt },\n      { role: \"user\", content: userMessage }\n    ]\n  }\n}];"
+        "jsCode": "// Agrega mensagens e monta prompt para o GLM avaliar a conversa\nconst messages = $input.all().map(item => item.json);\nconst gkData = $(\"Processa Resposta FastAPI\").first().json;\nconst clinicName = $(\"Prepara Contexto Unificado\").first().json.clinicName || \"Clínica\";\n\nconst conversationText = messages\n  .filter(msg => msg.content && msg.content.trim())\n  .map(msg => {\n    const speaker = msg.direction === \"outbound\" ? \"Iris (SDR)\" : \"Recepcionista\";\n    return speaker + \": \" + msg.content.trim();\n  })\n  .join(\"\\n\");\n\nconst systemPrompt = \"Você é um avaliador de conversas de SDR (Sales Development Rep).\\n\" +\n  \"Analise a conversa entre Iris (SDR da EasyScale) e uma recepcionista de clínica médica.\\n\" +\n  \"Objetivo da Sofia: coletar o contato (WhatsApp ou email) do gestor/decisor da clínica.\\n\\n\" +\n  \"Cenários conhecidos (para referência):\\n\" +\n  \"- cooperative: recepcionista cooperativa, passa contato diretamente\\n\" +\n  \"- ask_data_then_pass: pede dados da Sofia antes de passar contato\\n\" +\n  \"- reverse_contact: pede que Sofia deixe contato para o gestor ligar\\n\" +\n  \"- email_only: aceita apenas email\\n\" +\n  \"- soft_refusal: evasiva, tenta adiar\\n\" +\n  \"- hard_refusal: recusa firme, baseada em política\\n\\n\" +\n  \"Retorne SOMENTE um JSON válido (sem markdown, sem blocos de código):\\n\" +\n  \"IMPORTANTE: quality_score deve ser um número entre 0.0 e 1.0 (ex: 0.3, 0.7, 1.0).\\n\" +\n  \"{\\n\" +\n  \"  \\\"quality_score\\\": 0.0,\\n\" +\n  \"  \\\"outcome_label\\\": \\\"SUCCESS\\\",\\n\" +\n  \"  \\\"outcome_reason\\\": \\\"string curta\\\",\\n\" +\n  \"  \\\"sofia_did_well\\\": [\\\"ponto1\\\"],\\n\" +\n  \"  \\\"sofia_should_improve\\\": [\\\"ponto1\\\"],\\n\" +\n  \"  \\\"is_new_pattern\\\": false,\\n\" +\n  \"  \\\"suggested_scenario_name\\\": \\\"\\\"\\n\" +\n  \"}\\n\\n\" +\n  \"Valores válidos para outcome_label:\\n\" +\n  \"SUCCESS, EMAIL_SUCCESS, GRACEFUL_DENIED, SLOW_EXIT, STUCK, BLOCKED_RISK\";\n\nconst userMessage = \"Stage final do sistema: \" + gkData.rawStage + \"\\nClínica: \" + clinicName + \"\\n\\nConversa:\\n\" + conversationText;\n\nreturn [{\n  json: {\n    conversationId: gkData.conversationId,\n    remoteJid: $(\"Prepara Contexto Unificado\").first().json.remoteJid || \"\",\n    clinicName,\n    rawStage: gkData.rawStage,\n    conversationText,\n    glmMessages: [\n      { role: \"system\", content: systemPrompt },\n      { role: \"user\", content: userMessage }\n    ]\n  }\n}];"
       },
       "id": "build-glm-prompt",
       "name": "Code - Monta Prompt GLM",
@@ -996,6 +996,86 @@
         4680,
         1120
       ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id FROM gk_leads\nWHERE clinic_phone = '{{ $json.phoneNumber }}'\n  AND status IN ('decisor_captured', 'denied')\n  AND updated_at >= NOW() - INTERVAL '2 hours'\nLIMIT 1;",
+        "options": {}
+      },
+      "id": "busca-conversa-recente",
+      "name": "Supabase - Conversa Recente?",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1900, 100],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-has-recent",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-react",
+      "name": "Reage com Coração?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2130, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendReaction/{{ $env.EVOLUTION_INSTANCE_NAME }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": {{ JSON.stringify($('Merge - Contexto da Conversa').first().json.remoteJid) }},\n  \"reactionMessage\": {\n    \"key\": {\n      \"remoteJid\": {{ JSON.stringify($('Merge - Contexto da Conversa').first().json.remoteJid) }},\n      \"fromMe\": false,\n      \"id\": {{ JSON.stringify($('Merge - Contexto da Conversa').first().json.wamid) }}\n    },\n    \"reaction\": \"❤️\"\n  }\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "send-heart-reaction",
+      "name": "Evolution - Reação ❤️",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2360, 0],
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
@@ -1105,7 +1185,7 @@
       "main": [
         [
           {
-            "node": "Respond - Ignorada",
+            "node": "Supabase - Conversa Recente?",
             "type": "main",
             "index": 0
           }
@@ -1113,6 +1193,46 @@
         [
           {
             "node": "Supabase - Atualiza Conversa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Conversa Recente?": {
+      "main": [
+        [
+          {
+            "node": "Reage com Coração?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reage com Coração?": {
+      "main": [
+        [
+          {
+            "node": "Evolution - Reação ❤️",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Ignorada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evolution - Reação ❤️": {
+      "main": [
+        [
+          {
+            "node": "Respond - Ignorada",
             "type": "main",
             "index": 0
           }

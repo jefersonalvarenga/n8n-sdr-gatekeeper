@@ -21,7 +21,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE gk_conversations\nSET status = 'expired'\nWHERE status IN ('greeting_sent', 'gathering_decisor')\n  AND last_message_at < NOW() - INTERVAL '4 hours'\nRETURNING id, remote_jid, push_name, message_count, last_message_at;",
+        "query": "UPDATE gk_conversations\nSET status = 'expired'\nWHERE status IN ('greeting_sent', 'gathering_decisor', 'stalled')\n  AND last_message_at < NOW() - INTERVAL '4 hours'\nRETURNING id, remote_jid, push_name, message_count, last_message_at;",
         "options": {}
       },
       "id": "expire-conversations",
@@ -57,6 +57,24 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [930, 300],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE gk_leads\nSET status = 'expired', updated_at = NOW()\nWHERE conversation_id = '{{ $json.conversationId }}'\n  AND status NOT IN ('decisor_captured');",
+        "options": {}
+      },
+      "id": "update-leads-expired",
+      "name": "Supabase - Atualiza Leads Expirados",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1160, 300],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -144,6 +162,17 @@
         [
           {
             "node": "Supabase - Evento Expiração",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Evento Expiração": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Atualiza Leads Expirados",
             "type": "main",
             "index": 0
           }
