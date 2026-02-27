@@ -779,7 +779,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"glm-4-air\",\n  \"messages\": {{ JSON.stringify($json.glmMessages) }},\n  \"temperature\": 0.1,\n  \"max_tokens\": 1024\n}",
+        "jsonBody": "={\n  \"model\": \"glm-5\",\n  \"messages\": {{ JSON.stringify($json.glmMessages) }},\n  \"temperature\": 0.1,\n  \"max_tokens\": 1024\n}",
         "options": {
           "timeout": 30000
         }
