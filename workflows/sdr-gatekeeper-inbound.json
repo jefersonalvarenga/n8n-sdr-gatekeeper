@@ -854,7 +854,7 @@
     },
     {
       "parameters": {
-        "amount": 5,
+        "amount": 10,
         "unit": "seconds"
       },
       "id": "wait-reset-cooldown",
@@ -1503,12 +1503,12 @@
       "main": [
         [
           {
-            "node": "Supabase - Auto Reset",
+            "node": "Auto-tune?",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Auto-tune?",
+            "node": "Wait - Reset Cooldown",
             "type": "main",
             "index": 0
           }
@@ -1519,7 +1519,7 @@
       "main": [
         [
           {
-            "node": "HTTP - Dispara Outbound",
+            "node": "Supabase - Auto Reset",
             "type": "main",
             "index": 0
           }
@@ -1541,7 +1541,7 @@
       "main": [
         [
           {
-            "node": "Wait - Reset Cooldown",
+            "node": "HTTP - Dispara Outbound",
             "type": "main",
             "index": 0
           }
