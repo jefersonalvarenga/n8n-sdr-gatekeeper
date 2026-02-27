@@ -854,7 +854,7 @@
     },
     {
       "parameters": {
-        "amount": 10,
+        "amount": 5,
         "unit": "seconds"
       },
       "id": "wait-reset-cooldown",
