@@ -919,6 +919,83 @@
         3645,
         980
       ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-low-score",
+              "leftValue": "={{ $json.qualityScore }}",
+              "rightValue": 0.5,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            },
+            {
+              "id": "cond-new-pattern",
+              "leftValue": "={{ $json.isNewPattern }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "or"
+        }
+      },
+      "id": "check-auto-tune",
+      "name": "Auto-tune?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4450,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.github.com/repos/jefersonalvarenga/ai-decision-engine/actions/workflows/auto-tune-from-real.yml/dispatches",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.GITHUB_TOKEN }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"ref\": \"main\",\n  \"inputs\": {\n    \"quality_threshold\": \"0.6\",\n    \"since_hours\": \"48\",\n    \"limit\": \"10\"\n  }\n}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "dispatch-auto-tune",
+      "name": "HTTP - Dispara Auto-tune",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4680,
+        1120
+      ]
     }
   ],
   "connections": {
@@ -1300,6 +1377,11 @@
             "node": "Supabase - Auto Reset",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Auto-tune?",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -1335,6 +1417,18 @@
             "index": 0
           }
         ]
+      ]
+    },
+    "Auto-tune?": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Dispara Auto-tune",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
       ]
     }
   },
