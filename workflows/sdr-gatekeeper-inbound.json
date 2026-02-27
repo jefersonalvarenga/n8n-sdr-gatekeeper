@@ -847,7 +847,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3760,
+        3990,
         980
       ],
       "onError": "continueRegularOutput"
@@ -862,7 +862,61 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
+        3760,
+        980
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Auto-reset ao encerrar conversa (limpa DB para o próximo ciclo)\nDELETE FROM gk_events WHERE conversation_id IN (\n  SELECT id FROM gk_conversations WHERE remote_jid = '{{ $('Prepara Contexto Unificado').first().json.remoteJid }}'\n);\nDELETE FROM gk_messages WHERE conversation_id IN (\n  SELECT id FROM gk_conversations WHERE remote_jid = '{{ $('Prepara Contexto Unificado').first().json.remoteJid }}'\n);\nDELETE FROM gk_conversations\nWHERE remote_jid = '{{ $('Prepara Contexto Unificado').first().json.remoteJid }}';",
+        "options": {}
+      },
+      "id": "auto-reset-conversation",
+      "name": "Supabase - Auto Reset",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
         3530,
+        980
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE_NAME }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": {{ JSON.stringify($('Prepara Contexto Unificado').first().json.remoteJid) }},\n  \"text\": \"reset\"\n}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "send-reset-to-sim",
+      "name": "Evolution - Envia Reset Sim",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3645,
         980
       ]
     }
@@ -1182,7 +1236,7 @@
       "main": [
         [
           {
-            "node": "Wait - Reset Cooldown",
+            "node": "Supabase - Auto Reset",
             "type": "main",
             "index": 0
           },
@@ -1254,6 +1308,28 @@
         [
           {
             "node": "HTTP - Dispara Outbound",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Auto Reset": {
+      "main": [
+        [
+          {
+            "node": "Evolution - Envia Reset Sim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evolution - Envia Reset Sim": {
+      "main": [
+        [
+          {
+            "node": "Wait - Reset Cooldown",
             "type": "main",
             "index": 0
           }
