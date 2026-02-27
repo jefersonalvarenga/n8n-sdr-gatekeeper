@@ -1236,11 +1236,6 @@
       "main": [
         [
           {
-            "node": "Supabase - Auto Reset",
-            "type": "main",
-            "index": 0
-          },
-          {
             "node": "Supabase - Histórico Completo",
             "type": "main",
             "index": 0
@@ -1300,7 +1295,13 @@
     },
     "Supabase - Salva Descoberta": {
       "main": [
-        []
+        [
+          {
+            "node": "Supabase - Auto Reset",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Wait - Reset Cooldown": {
