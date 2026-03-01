@@ -317,7 +317,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO gk_messages (conversation_id, direction, content, message_type, wamid)\nVALUES (\n  '{{ $json.conversationId }}',\n  'inbound',\n  $gk${{ $json.messageContent }}$gk$,\n  '{{ $json.messageType }}',\n  '{{ $json.wamid }}'\n);",
+        "query": "INSERT INTO gk_messages (conversation_id, direction, content, message_type, wamid)\nVALUES (\n  '{{ $json.conversationId }}',\n  'inbound',\n  '{{ ($json.messageContent).replace(/'/g, \"''\") }}',\n  '{{ $json.messageType }}',\n  '{{ $json.wamid }}'\n);",
         "options": {}
       },
       "id": "save-inbound-message",
@@ -427,7 +427,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE gk_conversations\nSET\n  status = '{{ $json.conversationStage }}',\n  decisor_name = CASE\n    WHEN {{ $json.extractedManagerName ? 'true' : 'false' }} = 'true'\n    THEN $gk${{ $json.extractedManagerName }}$gk$\n    ELSE decisor_name\n  END,\n  decisor_phone = CASE\n    WHEN {{ $json.extractedManagerContact ? 'true' : 'false' }} = 'true'\n    THEN $gk${{ $json.extractedManagerContact }}$gk$\n    ELSE decisor_phone\n  END,\n  decisor_email = CASE\n    WHEN {{ $json.extractedManagerEmail ? 'true' : 'false' }} = 'true'\n    THEN $gk${{ $json.extractedManagerEmail }}$gk$\n    ELSE decisor_email\n  END\nWHERE id = '{{ $json.conversationId }}';",
+        "query": "UPDATE gk_conversations\nSET\n  status = '{{ $json.conversationStage }}',\n  decisor_name = CASE\n    WHEN {{ $json.extractedManagerName ? 'true' : 'false' }} = 'true'\n    THEN '{{ ($json.extractedManagerName).replace(/'/g, \"''\") }}'\n    ELSE decisor_name\n  END,\n  decisor_phone = CASE\n    WHEN {{ $json.extractedManagerContact ? 'true' : 'false' }} = 'true'\n    THEN '{{ ($json.extractedManagerContact).replace(/'/g, \"''\") }}'\n    ELSE decisor_phone\n  END,\n  decisor_email = CASE\n    WHEN {{ $json.extractedManagerEmail ? 'true' : 'false' }} = 'true'\n    THEN '{{ ($json.extractedManagerEmail).replace(/'/g, \"''\") }}'\n    ELSE decisor_email\n  END\nWHERE id = '{{ $json.conversationId }}';",
         "options": {}
       },
       "id": "update-conversation-status",
@@ -448,7 +448,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO gk_messages (conversation_id, direction, content, message_type, stage)\nVALUES (\n  '{{ $json.conversationId }}',\n  'outbound',\n  $gk${{ $json.responseMessage }}$gk$,\n  'text',\n  '{{ $json.rawStage }}'\n);",
+        "query": "INSERT INTO gk_messages (conversation_id, direction, content, message_type, stage)\nVALUES (\n  '{{ $json.conversationId }}',\n  'outbound',\n  '{{ ($json.responseMessage).replace(/'/g, \"''\") }}',\n  'text',\n  '{{ $json.rawStage }}'\n);",
         "options": {}
       },
       "id": "save-outbound-message",
@@ -645,7 +645,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO clinic_decisors (\n  place_id,\n  gk_conversation_id,\n  clinic_name,\n  clinic_phone,\n  manager_name,\n  manager_phone,\n  manager_email,\n  lead_score,\n  ads_group,\n  status\n) VALUES (\n  $gk${{ $json.place_id || '' }}$gk$,\n  '{{ $('Evento - Decisor Capturado?').first().json.conversationId }}',\n  $gk${{ $('Prepara Contexto Unificado').first().json.clinicName || '' }}$gk$,\n  $gk${{ $('Prepara Contexto Unificado').first().json.clinicPhone || '' }}$gk$,\n  $gk${{ $('Processa Resposta FastAPI').first().json.extractedManagerName || '' }}$gk$,\n  $gk${{ $('Processa Resposta FastAPI').first().json.extractedManagerContact || '' }}$gk$,\n  $gk${{ $('Processa Resposta FastAPI').first().json.extractedManagerEmail || '' }}$gk$,\n  {{ $json.lead_score || 0 }},\n  $gk${{ $json.ads_group || '' }}$gk$,\n  'captured'\n)\nON CONFLICT (manager_phone) WHERE manager_phone IS NOT NULL DO NOTHING;",
+        "query": "INSERT INTO clinic_decisors (\n  place_id,\n  gk_conversation_id,\n  clinic_name,\n  clinic_phone,\n  manager_name,\n  manager_phone,\n  manager_email,\n  lead_score,\n  ads_group,\n  status\n) VALUES (\n  '{{ $json.place_id || '' }}',\n  '{{ $('Evento - Decisor Capturado?').first().json.conversationId }}',\n  '{{ ($('Prepara Contexto Unificado').first().json.clinicName || '').replace(/'/g, \"''\") }}',\n  '{{ ($('Prepara Contexto Unificado').first().json.clinicPhone || '').replace(/'/g, \"''\") }}',\n  '{{ ($('Processa Resposta FastAPI').first().json.extractedManagerName || '').replace(/'/g, \"''\") }}',\n  '{{ ($('Processa Resposta FastAPI').first().json.extractedManagerContact || '').replace(/'/g, \"''\") }}',\n  '{{ ($('Processa Resposta FastAPI').first().json.extractedManagerEmail || '').replace(/'/g, \"''\") }}',\n  {{ $json.lead_score || 0 }},\n  '{{ $json.ads_group || '' }}',\n  'captured'\n)\nON CONFLICT (manager_phone) WHERE manager_phone IS NOT NULL DO NOTHING;",
         "options": {}
       },
       "id": "insert-clinic-decisors",
@@ -813,7 +813,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO gk_discovered_cases (\n  conversation_id,\n  clinic_name,\n  final_stage,\n  quality_score,\n  outcome_label,\n  outcome_reason,\n  sofia_did_well,\n  sofia_should_improve,\n  is_new_pattern,\n  suggested_scenario_name,\n  full_conversation,\n  raw_glm_response,\n  remote_jid\n) VALUES (\n  '{{ $json.conversationId }}',\n  $gk${{ $json.clinicName }}$gk$,\n  '{{ $json.rawStage }}',\n  {{ $json.qualityScore }},\n  '{{ $json.outcomeLabel }}',\n  $gk${{ $json.outcomeReason }}$gk$,\n  $gk${{ $json.sofiaDidWell }}$gk$::jsonb,\n  $gk${{ $json.sofiaShoulImprove }}$gk$::jsonb,\n  {{ $json.isNewPattern }},\n  $gk${{ $json.suggestedScenarioName }}$gk$,\n  $gk${{ $json.conversationText }}$gk$,\n  $gk${{ $json.rawGlmResponse }}$gk$,\n  '{{ $json.remoteJid }}'\n);",
+        "query": "INSERT INTO gk_discovered_cases (\n  conversation_id,\n  clinic_name,\n  final_stage,\n  quality_score,\n  outcome_label,\n  outcome_reason,\n  sofia_did_well,\n  sofia_should_improve,\n  is_new_pattern,\n  suggested_scenario_name,\n  full_conversation,\n  raw_glm_response,\n  remote_jid\n) VALUES (\n  '{{ $json.conversationId }}',\n  '{{ ($json.clinicName).replace(/'/g, \"''\") }}',\n  '{{ $json.rawStage }}',\n  {{ $json.qualityScore }},\n  '{{ $json.outcomeLabel }}',\n  '{{ ($json.outcomeReason).replace(/'/g, \"''\") }}',\n  '{{ $json.sofiaDidWell }}'::jsonb,\n  '{{ $json.sofiaShoulImprove }}'::jsonb,\n  {{ $json.isNewPattern }},\n  '{{ ($json.suggestedScenarioName).replace(/'/g, \"''\") }}',\n  '{{ ($json.conversationText).replace(/'/g, \"''\") }}',\n  '{{ ($json.rawGlmResponse).replace(/'/g, \"''\") }}',\n  '{{ $json.remoteJid }}'\n);",
         "options": {}
       },
       "id": "save-discovery",
