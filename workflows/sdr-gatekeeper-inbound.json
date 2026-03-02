@@ -815,7 +815,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "-- Auto-reset ao encerrar conversa (limpa DB para o próximo ciclo)\nDELETE FROM gk_events WHERE conversation_id IN (\n  SELECT id FROM gk_conversations WHERE remote_jid = '{{ $('Prepara Contexto Unificado').first().json.remoteJid }}'\n);\nDELETE FROM gk_messages WHERE conversation_id IN (\n  SELECT id FROM gk_conversations WHERE remote_jid = '{{ $('Prepara Contexto Unificado').first().json.remoteJid }}'\n);\nDELETE FROM gk_conversations\nWHERE remote_jid = '{{ $('Prepara Contexto Unificado').first().json.remoteJid }}';",
+        "query": "-- Auto-reset: preserva histórico (modelo conversa eterna)\n-- Marca como encerrada; o próximo greeting faz UPSERT e seta greeting_sent\nUPDATE gk_conversations\nSET status             = 'auto_reset',\n    fastapi_session_id = NULL,\n    updated_at         = NOW()\nWHERE remote_jid = '{{ $('Prepara Contexto Unificado').first().json.remoteJid }}';",
         "options": {}
       },
       "id": "auto-reset-conversation",
