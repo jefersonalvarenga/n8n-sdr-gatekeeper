@@ -243,7 +243,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"clinic_name\": {{ JSON.stringify($json.clinic_name) }},\n  \"clinic_phone\": {{ JSON.stringify($json.clinic_phone) }},\n  \"conversation_history\": [],\n  \"latest_message\": null,\n  \"current_weekday\": {{ (new Date().getDay() + 6) % 7 }}\n}",
+        "jsonBody": "={\n  \"clinic_name\": {{ JSON.stringify($json.clinic_name) }},\n  \"clinic_phone\": {{ JSON.stringify($json.clinic_phone) }},\n  \"conversation_history\": [],\n  \"latest_message\": null,\n  \"current_weekday\": {{ (new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })).getDay() + 6) % 7 }}\n}",
         "options": {
           "timeout": 30000
         }

@@ -389,7 +389,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"clinic_name\": {{ JSON.stringify($json.clinicName) }},\n  \"clinic_phone\": {{ JSON.stringify($json.clinicPhone) }},\n  \"conversation_history\": {{ JSON.stringify($json.conversationHistory) }},\n  \"latest_message\": {{ JSON.stringify($json.latestMessage) }},\n  \"current_weekday\": {{ (new Date().getDay() + 6) % 7 }}\n}",
+        "jsonBody": "={\n  \"clinic_name\": {{ JSON.stringify($json.clinicName) }},\n  \"clinic_phone\": {{ JSON.stringify($json.clinicPhone) }},\n  \"conversation_history\": {{ JSON.stringify($json.conversationHistory) }},\n  \"latest_message\": {{ JSON.stringify($json.latestMessage) }},\n  \"current_weekday\": {{ (new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })).getDay() + 6) % 7 }}\n}",
         "options": {
           "timeout": 30000,
           "response": {
