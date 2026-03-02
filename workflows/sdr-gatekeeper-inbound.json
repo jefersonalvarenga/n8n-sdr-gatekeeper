@@ -171,7 +171,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n  COALESCE(c.id::text, 'none') AS id,\n  COALESCE(c.status, 'new') AS status,\n  COALESCE(c.message_count, 0) AS message_count,\n  COALESCE(c.fastapi_session_id, '') AS fastapi_session_id,\n  COALESCE(c.clinic_name, '') AS clinic_name,\n  COALESCE(c.remote_jid, '') AS clinic_phone,\n  CASE WHEN c.id IS NULL THEN true ELSE false END AS is_new\nFROM (SELECT 1) AS dummy\nLEFT JOIN gk_conversations c\n  ON c.remote_jid = '{{ $json.remoteJid }}'\n  AND c.status IN ('greeting_sent', 'gathering_decisor', 'stalled')\nORDER BY c.created_at DESC NULLS LAST\nLIMIT 1;",
+        "query": "SELECT\n  COALESCE(c.id::text, 'none') AS id,\n  COALESCE(c.status, 'new') AS status,\n  COALESCE(c.message_count, 0) AS message_count,\n  COALESCE(c.fastapi_session_id, '') AS fastapi_session_id,\n  COALESCE(c.clinic_name, '') AS clinic_name,\n  COALESCE(c.remote_jid, '') AS clinic_phone,\n  CASE WHEN c.id IS NULL THEN true ELSE false END AS is_new\nFROM (SELECT 1) AS dummy\nLEFT JOIN gk_conversations c\n  ON c.status IN ('greeting_sent', 'gathering_decisor', 'stalled')\n  AND (\n    -- Produção: match exato pelo JID real da clínica\n    (NOT {{ $json.isHomolog }} AND c.remote_jid = '{{ $json.remoteJid }}')\n    OR\n    -- Homolog: qualquer conversa ativa (ORDER BY garante a mais recente)\n    ({{ $json.isHomolog }} = true)\n  )\nORDER BY c.updated_at DESC NULLS LAST\nLIMIT 1;",
         "options": {}
       },
       "id": "lookup-conversation",
@@ -1085,6 +1085,33 @@
         0
       ],
       "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Detecta se a mensagem veio do número de homologação (TEST_PHONE).\n// Se sim, sinaliza isHomolog=true para o nó de busca de conversa\n// usar a conversa ativa mais recente em vez do remote_jid exato.\n\nconst data = $input.first().json;\nconst testPhone = ($env.TEST_PHONE || '').replace(/\\D/g, '');\nconst incomingPhone = data.remoteJid.replace('@s.whatsapp.net', '');\n\nreturn [{ json: {\n  ...data,\n  isHomolog: testPhone !== '' && incomingPhone === testPhone\n} }];"
+      },
+      "id": "resolve-jid-homolog",
+      "name": "Resolve JID (Homolog?)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        970,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "seconds"
+      },
+      "id": "wait-5s-outbound",
+      "name": "Wait 5s - Antes do Outbound",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3760,
+        980
+      ]
     }
   ],
   "connections": {
@@ -1139,7 +1166,7 @@
         ],
         [
           {
-            "node": "Supabase - Busca Conversa",
+            "node": "Resolve JID (Homolog?)",
             "type": "main",
             "index": 0
           }
@@ -1541,7 +1568,7 @@
       "main": [
         [
           {
-            "node": "HTTP - Dispara Outbound",
+            "node": "Wait 5s - Antes do Outbound",
             "type": "main",
             "index": 0
           }
@@ -1558,6 +1585,28 @@
           }
         ],
         []
+      ]
+    },
+    "Resolve JID (Homolog?)": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Busca Conversa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 5s - Antes do Outbound": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Dispara Outbound",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },

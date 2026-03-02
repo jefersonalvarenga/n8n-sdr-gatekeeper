@@ -262,7 +262,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ============================================\n// Extrai mensagem gerada pela SDR Iris (FastAPI)\n// Calcula delay aleatório para cadência humanizada\n// ============================================\n\nconst lead = $('Lead Inserido?').first().json;\nconst fastapi = $input.first().json;\nconst config = $('Atingiu Cap?').first().json;\n\n// Mensagem gerada pela SDR Iris via FastAPI\nconst message = fastapi.response_message;\n\n// Sem mensagem: para execução silenciosamente\nif (!message) {\n  return [];\n}\n\n// Delay aleatório entre min e max (fallback seguro se config não disponível)\nconst minDelay = config?.minDelayS ?? 30;\nconst maxDelay = config?.maxDelayS ?? 60;\nconst delayS = minDelay + Math.floor(Math.random() * Math.max(1, maxDelay - minDelay));\n\n// TEST_PHONE: se definido, redireciona TODAS as mensagens para esse número.\n// Permite testar o ciclo completo sem contatar clínicas reais.\n// Em produção: deixar vazio ou não definir.\nconst testPhone = $env.TEST_PHONE || '';\nconst remote_jid = testPhone\n  ? testPhone.replace(/\\D/g, '') + '@s.whatsapp.net'\n  : lead.clinic_phone + '@s.whatsapp.net';\n\nreturn [{\n  json: {\n    ...lead,\n    remote_jid,\n    greetingMessage: message,\n    delaySec: delayS\n  }\n}];"
+        "jsCode": "// ============================================\n// Extrai mensagem gerada pela SDR Iris (FastAPI)\n// Calcula delay aleatório para cadência humanizada\n// remote_jid sempre usa o telefone REAL da clínica.\n// O redirecionamento para homolog é feito no nó 'Roteamento Homolog'.\n// ============================================\n\nconst lead = $('Lead Inserido?').first().json;\nconst fastapi = $input.first().json;\nconst config = $('Atingiu Cap?').first().json;\n\n// Mensagem gerada pela SDR Iris via FastAPI\nconst message = fastapi.response_message;\n\n// Sem mensagem: para execução silenciosamente\nif (!message) {\n  return [];\n}\n\n// Delay aleatório entre min e max (fallback seguro se config não disponível)\nconst minDelay = config?.minDelayS ?? 30;\nconst maxDelay = config?.maxDelayS ?? 60;\nconst delayS = minDelay + Math.floor(Math.random() * Math.max(1, maxDelay - minDelay));\n\n// remote_jid: sempre o telefone real da clínica (nunca o TEST_PHONE)\nconst remote_jid = lead.clinic_phone.replace(/\\D/g, '') + '@s.whatsapp.net';\n\nreturn [{\n  json: {\n    ...lead,\n    remote_jid,\n    greetingMessage: message,\n    delaySec: delayS\n  }\n}];"
       },
       "id": "select-template",
       "name": "Seleciona Template",
@@ -283,7 +283,7 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        3000,
+        3250,
         300
       ]
     },
@@ -298,7 +298,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        3230,
+        3480,
         300
       ],
       "credentials": {
@@ -327,7 +327,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"number\": {{ JSON.stringify($('Seleciona Template').first().json.remote_jid) }},\n  \"text\": {{ JSON.stringify($('Seleciona Template').first().json.greetingMessage) }}\n}",
+        "jsonBody": "={\n  \"number\": {{ JSON.stringify($('Roteamento Homolog').first().json.send_jid) }},\n  \"text\": {{ JSON.stringify($('Seleciona Template').first().json.greetingMessage) }}\n}",
         "options": {
           "timeout": 15000
         }
@@ -337,7 +337,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3460,
+        3710,
         300
       ],
       "retryOnFail": true,
@@ -347,7 +347,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO gk_conversations (remote_jid, clinic_name, push_name, status, evolution_instance, message_count, last_message_at, expires_at)\nVALUES (\n  '{{ $('Seleciona Template').first().json.remote_jid }}',\n  $gk${{ $('Seleciona Template').first().json.clinic_name }}$gk$,\n  '',\n  'greeting_sent',\n  '{{ $env.EVOLUTION_INSTANCE_NAME }}',\n  1,\n  NOW(),\n  NOW() + INTERVAL '4 hours'\n)\nRETURNING id;",
+        "query": "INSERT INTO gk_conversations (remote_jid, clinic_name, push_name, status, evolution_instance, message_count, last_message_at, expires_at)\nVALUES (\n  '{{ $(\"Seleciona Template\").first().json.remote_jid }}',\n  '{{ ($(\"Seleciona Template\").first().json.clinic_name || \"\").replace(/'/g, \"''\") }}',\n  '',\n  'greeting_sent',\n  '{{ $env.EVOLUTION_INSTANCE_NAME }}',\n  1,\n  NOW(),\n  NOW() + INTERVAL '4 hours'\n)\nON CONFLICT (remote_jid) DO UPDATE\n  SET status = 'greeting_sent',\n      updated_at = NOW()\nRETURNING id;",
         "options": {}
       },
       "id": "create-conversation",
@@ -355,7 +355,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        3690,
+        3940,
         300
       ],
       "credentials": {
@@ -376,7 +376,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        3920,
+        4170,
         200
       ],
       "credentials": {
@@ -397,7 +397,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        3920,
+        4170,
         400
       ],
       "credentials": {
@@ -433,6 +433,19 @@
       "position": [
         250,
         700
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Roteamento Homolog\n// Única responsabilidade: substituir o destino do envio WhatsApp se TEST_PHONE estiver definido.\n// O banco já foi gravado com os dados reais — só o destino da mensagem muda aqui.\n\nconst data = $input.first().json;\nconst testPhone = ($env.TEST_PHONE || '').replace(/\\D/g, '');\n\n// send_jid: destino real do envio\n// remote_jid (gravado no banco) permanece com o JID real da clínica\nconst send_jid = testPhone\n  ? testPhone + '@s.whatsapp.net'\n  : data.remote_jid;\n\nreturn [{ json: { ...data, send_jid } }];"
+      },
+      "id": "routing-homolog",
+      "name": "Roteamento Homolog",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3240,
+        300
       ]
     }
   ],
@@ -562,7 +575,7 @@
       "main": [
         [
           {
-            "node": "Wait - Delay Aleatório",
+            "node": "Roteamento Homolog",
             "type": "main",
             "index": 0
           }
@@ -634,6 +647,17 @@
         [
           {
             "node": "Horário Comercial?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Roteamento Homolog": {
+      "main": [
+        [
+          {
+            "node": "Wait - Delay Aleatório",
             "type": "main",
             "index": 0
           }
