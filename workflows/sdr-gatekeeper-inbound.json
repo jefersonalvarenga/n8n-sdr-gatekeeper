@@ -171,7 +171,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n  COALESCE(c.id::text, 'none') AS id,\n  COALESCE(c.status, 'new') AS status,\n  COALESCE(c.message_count, 0) AS message_count,\n  COALESCE(c.fastapi_session_id, '') AS fastapi_session_id,\n  COALESCE(c.clinic_name, '') AS clinic_name,\n  COALESCE(c.remote_jid, '') AS clinic_phone,\n  CASE WHEN c.id IS NULL THEN true ELSE false END AS is_new\nFROM (SELECT 1) AS dummy\nLEFT JOIN gk_conversations c\n  ON c.status IN ('greeting_sent', 'gathering_decisor', 'stalled')\n  AND (\n    -- Produção: match exato pelo JID real da clínica\n    (NOT {{ $json.isHomolog }} AND c.remote_jid = '{{ $json.remoteJid }}')\n    OR\n    -- Homolog: qualquer conversa ativa (ORDER BY garante a mais recente)\n    ({{ $json.isHomolog }} = true)\n  )\nORDER BY c.updated_at DESC NULLS LAST\nLIMIT 1;",
+        "query": "SELECT\n  COALESCE(c.id::text, '') AS id,\n  COALESCE(c.status, '') AS status,\n  COALESCE(c.message_count, 0) AS message_count,\n  COALESCE(c.fastapi_session_id, '') AS fastapi_session_id,\n  COALESCE(c.clinic_name, '') AS clinic_name,\n  COALESCE(c.remote_jid, '') AS clinic_phone\nFROM (SELECT 1) AS dummy\nLEFT JOIN gk_conversations c\n  ON (\n    (NOT {{ $json.isHomolog }} AND c.remote_jid = '{{ $json.remoteJid }}')\n    OR\n    ({{ $json.isHomolog }} = true)\n  )\nORDER BY c.updated_at DESC NULLS LAST\nLIMIT 1;",
         "options": {}
       },
       "id": "lookup-conversation",
@@ -194,7 +194,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Merge dados da mensagem com dados da conversa existente\n// A query sempre retorna 1 row (LEFT JOIN com dummy)\nconst message = $('É Reset?').first().json;\nconst dbResults = $input.first().json;\n\nconst isNew = dbResults.is_new === true || dbResults.id === 'none';\n\nreturn [{\n  json: {\n    ...message,\n    conversationId: isNew ? null : dbResults.id,\n    isNewConversation: isNew,\n    fastapiSessionId: isNew ? null : (dbResults.fastapi_session_id || null),\n    currentStatus: isNew ? null : dbResults.status,\n    clinicName: isNew ? '' : (dbResults.clinic_name || ''),\n    clinicPhone: isNew ? message.phoneNumber : (dbResults.clinic_phone || message.phoneNumber)\n  }\n}];"
+        "jsCode": "// Merge dados da mensagem com dados da conversa\nconst message = $('É Reset?').first().json;\nconst dbResults = $input.first().json;\n\nreturn [{\n  json: {\n    ...message,\n    conversationId: dbResults.id || null,\n    fastapiSessionId: dbResults.fastapi_session_id || null,\n    currentStatus: dbResults.status || null,\n    clinicName: dbResults.clinic_name || '',\n    clinicPhone: dbResults.clinic_phone || message.remoteJid\n  }\n}];"
       },
       "id": "merge-context",
       "name": "Merge - Contexto da Conversa",
@@ -204,60 +204,6 @@
         1660,
         400
       ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "condition-new",
-              "leftValue": "={{ $json.isNewConversation }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "check-new-conversation",
-      "name": "Nova Conversa?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        1890,
-        400
-      ]
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO gk_conversations (remote_jid, push_name, status, evolution_instance, message_count, last_message_at)\nVALUES (\n  '{{ $json.remoteJid }}',\n  '{{ $json.pushName }}',\n  'gathering_decisor',\n  '{{ $json.instanceName }}',\n  1,\n  NOW()\n)\nRETURNING id, status;",
-        "options": {}
-      },
-      "id": "create-conversation",
-      "name": "Supabase - Cria Conversa",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        2130,
-        300
-      ],
-      "credentials": {
-        "postgres": {
-          "id": "SUPABASE_CREDENTIALS_ID",
-          "name": "Postgres SDR Gatekeeper"
-        }
-      }
     },
     {
       "parameters": {
@@ -999,61 +945,6 @@
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT id FROM gk_leads\nWHERE clinic_phone = '{{ $json.phoneNumber }}'\n  AND status IN ('decisor_captured', 'denied')\n  AND updated_at >= NOW() - INTERVAL '2 hours'\nLIMIT 1;",
-        "options": {}
-      },
-      "id": "busca-conversa-recente",
-      "name": "Supabase - Conversa Recente?",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        2130,
-        100
-      ],
-      "credentials": {
-        "postgres": {
-          "id": "SUPABASE_CREDENTIALS_ID",
-          "name": "Postgres SDR Gatekeeper"
-        }
-      },
-      "alwaysOutputData": true
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose"
-          },
-          "conditions": [
-            {
-              "id": "cond-has-recent",
-              "leftValue": "={{ $json.id }}",
-              "rightValue": "",
-              "operator": {
-                "type": "string",
-                "operation": "notEmpty",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "check-react",
-      "name": "Reage com Coração?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        2360,
-        100
-      ]
-    },
-    {
-      "parameters": {
         "method": "POST",
         "url": "={{ $env.EVOLUTION_API_URL }}/message/sendReaction/{{ $env.EVOLUTION_INSTANCE_NAME }}",
         "sendHeaders": true,
@@ -1081,8 +972,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2590,
-        0
+        3780,
+        1090
       ],
       "onError": "continueRegularOutput"
     },
@@ -1210,54 +1101,7 @@
       "main": [
         [
           {
-            "node": "Nova Conversa?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Nova Conversa?": {
-      "main": [
-        [
-          {
-            "node": "Supabase - Conversa Recente?",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
             "node": "Supabase - Atualiza Conversa",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Supabase - Conversa Recente?": {
-      "main": [
-        [
-          {
-            "node": "Reage com Coração?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Reage com Coração?": {
-      "main": [
-        [
-          {
-            "node": "Evolution - Reação ❤️",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Respond - Ignorada",
             "type": "main",
             "index": 0
           }
@@ -1268,18 +1112,7 @@
       "main": [
         [
           {
-            "node": "Respond - Ignorada",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Supabase - Cria Conversa": {
-      "main": [
-        [
-          {
-            "node": "Prepara Contexto Unificado",
+            "node": "Supabase - Histórico Completo",
             "type": "main",
             "index": 0
           }
@@ -1469,12 +1302,11 @@
       "main": [
         [
           {
-            "node": "Supabase - Histórico Completo",
+            "node": "Evolution - Reação ❤️",
             "type": "main",
             "index": 0
           }
-        ],
-        []
+        ]
       ]
     },
     "HTTP - Dispara Outbound": {

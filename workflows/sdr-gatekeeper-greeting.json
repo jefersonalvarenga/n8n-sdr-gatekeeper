@@ -347,7 +347,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO gk_conversations (remote_jid, clinic_name, push_name, status, evolution_instance, message_count, last_message_at, expires_at)\nVALUES (\n  '{{ $(\"Seleciona Template\").first().json.remote_jid }}',\n  '{{ ($(\"Seleciona Template\").first().json.clinic_name || \"\").replace(/\\'/g, \"''\") }}',\n  '',\n  'greeting_sent',\n  '{{ $env.EVOLUTION_INSTANCE_NAME }}',\n  1,\n  NOW(),\n  NOW() + INTERVAL '4 hours'\n)\nRETURNING id;",
+        "query": "INSERT INTO gk_conversations (\n  remote_jid, clinic_name, push_name, status,\n  evolution_instance, message_count, last_message_at\n)\nVALUES (\n  '{{ $(\"Seleciona Template\").first().json.remote_jid }}',\n  '{{ ($(\"Seleciona Template\").first().json.clinic_name || \"\").replace(/\\'/g, \"''\") }}',\n  '',\n  'greeting_sent',\n  '{{ $env.EVOLUTION_INSTANCE_NAME }}',\n  1,\n  NOW()\n)\nON CONFLICT (remote_jid) DO UPDATE SET\n  status        = 'greeting_sent',\n  clinic_name   = EXCLUDED.clinic_name,\n  message_count = gk_conversations.message_count + 1,\n  last_message_at = NOW(),\n  updated_at    = NOW()\nRETURNING id;",
         "options": {}
       },
       "id": "create-conversation",
