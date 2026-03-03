@@ -322,7 +322,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE gk_leads SET updated_at = NOW()\nWHERE id = '{{ $json.id }}' AND status = 'created'\nRETURNING id;",
+        "query": "UPDATE gk_leads SET updated_at = NOW()\nWHERE clinic_phone = '{{ $json.clinic_phone }}' AND status = 'created'\nRETURNING id;",
         "options": {}
       },
       "id": "mark-processing",
