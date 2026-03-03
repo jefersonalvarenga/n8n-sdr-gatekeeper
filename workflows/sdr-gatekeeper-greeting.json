@@ -192,7 +192,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO gk_leads (clinic_name, clinic_phone, place_id, lead_score, ads_group, status)\nVALUES (\n  $gk${{ $json.out_clinic_name }}$gk$,\n  '{{ $json.out_clinic_phone }}',\n  $gk${{ $json.out_place_id }}$gk$,\n  {{ $json.out_lead_score || 0 }},\n  $gk${{ $json.out_ads_group }}$gk$,\n  'created'\n)\nON CONFLICT DO NOTHING\nRETURNING *;",
+        "query": "INSERT INTO gk_leads (clinic_name, clinic_phone, place_id, lead_score, ads_group, status)\nVALUES (\n  $gk${{ $json.out_clinic_name }}$gk$,\n  '{{ $json.out_clinic_phone }}',\n  $gk${{ $json.out_place_id }}$gk$,\n  {{ $json.out_lead_score || 0 }},\n  $gk${{ $json.out_ads_group }}$gk$,\n  'created'\n)\nON CONFLICT (place_id) DO UPDATE SET\n  clinic_name  = EXCLUDED.clinic_name,\n  clinic_phone = EXCLUDED.clinic_phone,\n  lead_score   = EXCLUDED.lead_score,\n  status       = 'created',\n  updated_at   = NOW()\nRETURNING *;",
         "options": {}
       },
       "id": "insert-gk-lead",
@@ -213,7 +213,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Caso 1: INSERT bem-sucedido com RETURNING → lead.id preenchido\n// Caso 2: ON CONFLICT DO NOTHING (duplicata) → { success: true } sem id\n//   → continua usando dados do Bandit (clínica já existe, mas queremos re-greeter)\nconst insertResult = $input.first().json;\n\n// Caso 1: novo lead inserido\nif (insertResult?.id) {\n  return [{ json: insertResult }];\n}\n\n// Caso 2: duplicata (ON CONFLICT) — busca dados do Bandit\nif (insertResult?.success === true) {\n  const clinic = $('Tem Clínica?').first().json;\n  if (!clinic?.out_clinic_phone) return [];\n  return [{ json: {\n    clinic_name:  clinic.out_clinic_name  || '',\n    clinic_phone: clinic.out_clinic_phone || '',\n    place_id:     clinic.out_place_id     || '',\n    lead_score:   clinic.out_lead_score   || 0,\n    ads_group:    clinic.out_ads_group    || ''\n  } }];\n}\n\n// Sem dados válidos: para silenciosamente\nreturn [];"
+        "jsCode": "// UPSERT sempre retorna o lead com id (novo ou existente)\n// Retorna [] apenas se houve erro inesperado (sem id)\nconst lead = $input.first().json;\n\nif (!lead?.id) {\n  return [];\n}\n\nreturn [{ json: lead }];"
       },
       "id": "has-leads",
       "name": "Lead Inserido?",
