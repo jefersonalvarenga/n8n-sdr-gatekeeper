@@ -227,6 +227,38 @@
     {
       "parameters": {
         "method": "POST",
+        "url": "https://ade.easyscale.co/v1/utils/extract-short-name",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.FASTAPI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"full_name\": {{ JSON.stringify($json.clinic_name) }}\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "fastapi-extrai-nome-curto",
+      "name": "FastAPI - Extrai Nome Curto",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2660,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "method": "POST",
         "url": "https://ade.easyscale.co/v1/sdr/gatekeeper",
         "sendHeaders": true,
         "headerParameters": {
@@ -243,7 +275,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"clinic_name\": {{ JSON.stringify($json.clinic_name) }},\n  \"clinic_phone\": {{ JSON.stringify($json.clinic_phone) }},\n  \"conversation_history\": [],\n  \"latest_message\": null,\n  \"current_weekday\": {{ (new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })).getDay() + 6) % 7 }}\n}",
+        "jsonBody": "={\n  \"clinic_name\": {{ JSON.stringify($json.short_name || $('Lead Inserido?').first().json.clinic_name) }},\n  \"clinic_phone\": {{ JSON.stringify($('Lead Inserido?').first().json.clinic_phone) }},\n  \"conversation_history\": [],\n  \"latest_message\": null,\n  \"current_weekday\": {{ (new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })).getDay() + 6) % 7 }}\n}",
         "options": {
           "timeout": 30000
         }
@@ -253,7 +285,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2770,
+        2880,
         300
       ],
       "retryOnFail": true,
@@ -262,7 +294,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ============================================\n// Extrai mensagem gerada pela SDR Iris (FastAPI)\n// Calcula delay aleatório para cadência humanizada\n// remote_jid sempre usa o telefone REAL da clínica.\n// O redirecionamento para homolog é feito no nó 'Roteamento Homolog'.\n// ============================================\n\nconst lead = $('Lead Inserido?').first().json;\nconst fastapi = $input.first().json;\nconst config = $('Atingiu Cap?').first().json;\n\n// Mensagem gerada pela SDR Iris via FastAPI\nconst message = fastapi.response_message;\n\n// Sem mensagem: para execução silenciosamente\nif (!message) {\n  return [];\n}\n\n// Delay aleatório entre min e max (fallback seguro se config não disponível)\nconst minDelay = config?.minDelayS ?? 30;\nconst maxDelay = config?.maxDelayS ?? 60;\nconst delayS = minDelay + Math.floor(Math.random() * Math.max(1, maxDelay - minDelay));\n\n// remote_jid: sempre o telefone real da clínica (nunca o TEST_PHONE)\nconst remote_jid = lead.clinic_phone.replace(/\\D/g, '') + '@s.whatsapp.net';\n\nreturn [{\n  json: {\n    ...lead,\n    remote_jid,\n    greetingMessage: message,\n    delaySec: delayS\n  }\n}];"
+        "jsCode": "// ============================================\n// Extrai mensagem gerada pela SDR Iris (FastAPI)\n// Calcula delay aleatório para cadência humanizada\n// remote_jid sempre usa o telefone REAL da clínica.\n// O redirecionamento para homolog é feito no nó 'Roteamento Homolog'.\n// ============================================\n\nconst lead = $('Lead Inserido?').first().json;\nconst fastapi = $input.first().json;\nconst config = $('Atingiu Cap?').first().json;\n\n// Nome curto extraído pela LLM (fallback: nome original do CRM)\nconst shortName = $('FastAPI - Extrai Nome Curto').first().json.short_name || lead.clinic_name;\n\n// Mensagem gerada pela SDR Iris via FastAPI\nconst message = fastapi.response_message;\n\n// Sem mensagem: para execução silenciosamente\nif (!message) {\n  return [];\n}\n\n// Delay aleatório entre min e max (fallback seguro se config não disponível)\nconst minDelay = config?.minDelayS ?? 30;\nconst maxDelay = config?.maxDelayS ?? 60;\nconst delayS = minDelay + Math.floor(Math.random() * Math.max(1, maxDelay - minDelay));\n\n// remote_jid: sempre o telefone real da clínica (nunca o TEST_PHONE)\nconst remote_jid = lead.clinic_phone.replace(/\\D/g, '') + '@s.whatsapp.net';\n\nreturn [{\n  json: {\n    ...lead,\n    clinic_name: shortName,\n    remote_jid,\n    greetingMessage: message,\n    delaySec: delayS\n  }\n}];"
       },
       "id": "select-template",
       "name": "Seleciona Template",
@@ -550,6 +582,17 @@
       ]
     },
     "Lead Inserido?": {
+      "main": [
+        [
+          {
+            "node": "FastAPI - Extrai Nome Curto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FastAPI - Extrai Nome Curto": {
       "main": [
         [
           {
