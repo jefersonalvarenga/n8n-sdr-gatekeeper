@@ -192,7 +192,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH inserted AS (\n  INSERT INTO gk_leads (clinic_name, clinic_phone, place_id, lead_score, ads_group, status)\n  VALUES (\n    $gk${{ $json.out_clinic_name }}$gk$,\n    '{{ $json.out_clinic_phone }}',\n    $gk${{ $json.out_place_id }}$gk$,\n    {{ $json.out_lead_score || 0 }},\n    $gk${{ $json.out_ads_group }}$gk$,\n    'created'\n  )\n  ON CONFLICT DO NOTHING\n  RETURNING *\n)\nSELECT * FROM inserted\nUNION ALL\nSELECT * FROM gk_leads\nWHERE place_id = $gk${{ $json.out_place_id }}$gk$\n  AND NOT EXISTS (SELECT 1 FROM inserted)\nLIMIT 1;",
+        "query": "WITH inserted AS (\n  INSERT INTO gk_leads (clinic_name, clinic_phone, place_id, lead_score, ads_group, status)\n  VALUES (\n    $gk${{ $json.out_clinic_name }}$gk$,\n    '{{ $json.out_clinic_phone }}',\n    $gk${{ $json.out_place_id }}$gk$,\n    {{ $json.out_lead_score || 0 }},\n    $gk${{ $json.out_ads_group }}$gk$,\n    'created'\n  )\n  ON CONFLICT DO NOTHING\n  RETURNING *\n)\nSELECT * FROM inserted\nUNION ALL\nSELECT * FROM gk_leads\nWHERE place_id = '{{ $json.out_place_id }}'\n  AND NOT EXISTS (SELECT 1 FROM inserted)\nLIMIT 1;",
         "options": {}
       },
       "id": "insert-gk-lead",
