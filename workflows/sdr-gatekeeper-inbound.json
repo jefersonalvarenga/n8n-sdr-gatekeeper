@@ -284,7 +284,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n  direction,\n  content,\n  stage,\n  created_at\nFROM gk_messages\nWHERE conversation_id = '{{ $json.conversationId }}'\nORDER BY created_at ASC\nLIMIT 50;",
+        "query": "SELECT\n  m.direction,\n  m.content,\n  m.stage,\n  m.created_at\nFROM gk_messages m\nJOIN gk_conversations c ON c.id = m.conversation_id\nWHERE m.conversation_id = '{{ $json.conversationId }}'\n  AND m.created_at >= c.last_reset_at\nORDER BY m.created_at ASC\nLIMIT 50;",
         "options": {}
       },
       "id": "fetch-message-history",
@@ -815,7 +815,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "-- Auto-reset: preserva histórico (modelo conversa eterna)\n-- Marca como encerrada; o próximo greeting faz UPSERT e seta greeting_sent\nUPDATE gk_conversations\nSET status             = 'auto_reset',\n    fastapi_session_id = NULL,\n    updated_at         = NOW()\nWHERE remote_jid = '{{ $('Prepara Contexto Unificado').first().json.remoteJid }}';",
+        "query": "-- Auto-reset: preserva histórico (modelo conversa eterna)\n-- Marca como encerrada; o próximo greeting faz UPSERT e seta greeting_sent\nUPDATE gk_conversations\nSET status             = 'auto_reset',\n    fastapi_session_id = NULL,\n    last_reset_at      = NOW(),\n    updated_at         = NOW()\nWHERE remote_jid = '{{ $('Prepara Contexto Unificado').first().json.remoteJid }}';",
         "options": {}
       },
       "id": "auto-reset-conversation",
