@@ -16,83 +16,20 @@
       "name": "Cron - A cada 30min",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [250, 300]
+      "position": [250, 600]
     },
+
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE gk_conversations\nSET status = 'expired'\nWHERE status IN ('greeting_sent', 'gathering_decisor', 'stalled')\n  AND last_message_at < NOW() - INTERVAL '4 hours'\nRETURNING id, remote_jid, push_name, message_count, last_message_at;",
-        "options": {}
-      },
-      "id": "expire-conversations",
-      "name": "Supabase - Expira Conversas",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [480, 300],
-      "credentials": {
-        "postgres": {
-          "id": "SUPABASE_CREDENTIALS_ID",
-          "name": "Postgres SDR Gatekeeper"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Log conversas expiradas e registra eventos\nconst items = $input.all();\n\nif (!items || items.length === 0 || !items[0].json.id) {\n  return [{ json: { expired_count: 0 } }];\n}\n\nconst results = items.map(item => ({\n  json: {\n    conversationId: item.json.id,\n    remoteJid: item.json.remote_jid,\n    pushName: item.json.push_name,\n    messageCount: item.json.message_count,\n    lastMessageAt: item.json.last_message_at\n  }\n}));\n\nreturn results;"
-      },
-      "id": "process-expired",
-      "name": "Processa Expiradas",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [700, 300]
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO gk_events (conversation_id, event_type, event_data)\nVALUES (\n  '{{ $json.conversationId }}',\n  'expired',\n  '{\"message_count\": {{ $json.messageCount }}, \"last_message_at\": \"{{ $json.lastMessageAt }}\"}'::jsonb\n);",
-        "options": {}
-      },
-      "id": "save-expired-event",
-      "name": "Supabase - Evento Expiração",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [930, 300],
-      "credentials": {
-        "postgres": {
-          "id": "SUPABASE_CREDENTIALS_ID",
-          "name": "Postgres SDR Gatekeeper"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "UPDATE gk_leads\nSET status = 'expired', updated_at = NOW()\nWHERE conversation_id = '{{ $json.conversationId }}'\n  AND status NOT IN ('decisor_captured');",
-        "options": {}
-      },
-      "id": "update-leads-expired",
-      "name": "Supabase - Atualiza Leads Expirados",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [1160, 300],
-      "credentials": {
-        "postgres": {
-          "id": "SUPABASE_CREDENTIALS_ID",
-          "name": "Postgres SDR Gatekeeper"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "-- Detecta conversas que ficaram sem resposta (stalled)\n-- Atendente mandou msg, nós respondemos, mas atendente não respondeu em 2h\nUPDATE gk_conversations\nSET status = 'stalled'\nWHERE status IN ('greeting_sent', 'gathering_decisor')\n  AND last_message_at < NOW() - INTERVAL '2 hours'\n  AND last_message_at IS NOT NULL\nRETURNING id, remote_jid, push_name;",
+        "query": "-- Branch 1: Detecta Stalled (2h sem resposta)\n-- Transição: greeting_sent | gathering_decisor → stalled\nUPDATE gk_conversations\nSET status = 'stalled',\n    updated_at = NOW()\nWHERE status IN ('greeting_sent', 'gathering_decisor')\n  AND last_message_at < NOW() - INTERVAL '2 hours'\nRETURNING id, remote_jid, push_name, last_message_at;",
         "options": {}
       },
       "id": "detect-stalled",
       "name": "Supabase - Detecta Stalled",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [480, 520],
+      "position": [480, 200],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -102,25 +39,495 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\n\nif (!items || items.length === 0 || !items[0].json.id) {\n  return [{ json: { stalled_count: 0 } }];\n}\n\nreturn items.map(item => ({\n  json: {\n    conversationId: item.json.id,\n    eventType: 'stalled_detected',\n    eventData: JSON.stringify({ remote_jid: item.json.remote_jid })\n  }\n}));"
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-stalled-id",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
-      "id": "process-stalled",
-      "name": "Processa Stalled",
-      "type": "n8n-nodes-base.code",
+      "id": "filter-stalled",
+      "name": "Filtro - Tem Stalled?",
+      "type": "n8n-nodes-base.filter",
       "typeVersion": 2,
-      "position": [700, 520]
+      "position": [730, 200]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO gk_events (conversation_id, event_type, event_data)\nVALUES (\n  '{{ $json.conversationId }}',\n  '{{ $json.eventType }}',\n  '{{ $json.eventData }}'::jsonb\n);",
+        "query": "UPDATE gk_leads\nSET status = 'stalled', updated_at = NOW()\nWHERE conversation_id = '{{ $json.id }}'\n  AND status NOT IN ('decisor_captured', 'opted_out', 'closed', 'failed');",
         "options": {}
       },
-      "id": "save-stalled-event",
+      "id": "update-lead-stalled",
+      "name": "Supabase - Lead Stalled",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [980, 200],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO gk_messages (conversation_id, direction, content, message_type, stage)\nVALUES (\n  '{{ $json.id }}',\n  'outbound',\n  'Oi! Tudo bem? Estava esperando sua resposta para continuar. Pode me ajudar? 😊',\n  'text',\n  'stalled'\n);",
+        "options": {}
+      },
+      "id": "save-nudge-1",
+      "name": "Supabase - Salva Nudge 1",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1230, 200],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE_NAME }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.EVOLUTION_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": {{ $env.SDR_GATEKEEPER_MODE === 'dev' ? JSON.stringify($env.TEST_PHONE) : JSON.stringify($json.remote_jid) }},\n  \"text\": \"Oi! Tudo bem? Estava esperando sua resposta para continuar. Pode me ajudar? 😊\"\n}",
+        "options": { "timeout": 15000 }
+      },
+      "id": "send-nudge-1",
+      "name": "Evolution - Envia Nudge 1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1480, 200],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO gk_events (conversation_id, event_type, event_data)\nVALUES (\n  '{{ $json.id }}',\n  'stalled_nudge_sent',\n  '{\"remote_jid\": \"{{ $json.remote_jid }}\", \"last_message_at\": \"{{ $json.last_message_at }}\"}'::jsonb\n);",
+        "options": {}
+      },
+      "id": "event-stalled",
       "name": "Supabase - Evento Stalled",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [930, 520],
+      "position": [1730, 200],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Branch 2: Expira Conversas (24h sem resposta)\n-- Transição: greeting_sent | gathering_decisor | stalled → expired\n-- Reseta ciclo: last_reset_at e fastapi_session_id\nUPDATE gk_conversations\nSET status = 'expired',\n    last_reset_at = NOW(),\n    fastapi_session_id = NULL,\n    updated_at = NOW()\nWHERE status IN ('greeting_sent', 'gathering_decisor', 'stalled')\n  AND last_message_at < NOW() - INTERVAL '24 hours'\nRETURNING id, remote_jid, push_name, last_message_at;",
+        "options": {}
+      },
+      "id": "expire-conversations",
+      "name": "Supabase - Expira Conversas",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [480, 400],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-expired-id",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-expired",
+      "name": "Filtro - Tem Expiradas?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [730, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE gk_leads\nSET status = 'expired', updated_at = NOW()\nWHERE conversation_id = '{{ $json.id }}'\n  AND status NOT IN ('decisor_captured', 'opted_out', 'closed', 'failed');",
+        "options": {}
+      },
+      "id": "update-lead-expired",
+      "name": "Supabase - Lead Expirado",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [980, 400],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO gk_messages (conversation_id, direction, content, message_type, stage)\nVALUES (\n  '{{ $json.id }}',\n  'outbound',\n  'Olá! Voltando para dar uma oportunidade de continuarmos nossa conversa. Fico à disposição! 👋',\n  'text',\n  'expired'\n);",
+        "options": {}
+      },
+      "id": "save-nudge-2",
+      "name": "Supabase - Salva Nudge 2",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1230, 400],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE_NAME }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.EVOLUTION_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": {{ $env.SDR_GATEKEEPER_MODE === 'dev' ? JSON.stringify($env.TEST_PHONE) : JSON.stringify($json.remote_jid) }},\n  \"text\": \"Olá! Voltando para dar uma oportunidade de continuarmos nossa conversa. Fico à disposição! 👋\"\n}",
+        "options": { "timeout": 15000 }
+      },
+      "id": "send-nudge-2",
+      "name": "Evolution - Envia Nudge 2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1480, 400],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO gk_events (conversation_id, event_type, event_data)\nVALUES (\n  '{{ $json.id }}',\n  'expired_nudge_sent',\n  '{\"remote_jid\": \"{{ $json.remote_jid }}\", \"last_message_at\": \"{{ $json.last_message_at }}\"}'::jsonb\n);",
+        "options": {}
+      },
+      "id": "event-expired",
+      "name": "Supabase - Evento Expiração",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1730, 400],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Branch 3: Detecta Pending Optout (7d após expirado sem resposta)\n-- Transição: expired → pending_optout\nUPDATE gk_conversations\nSET status = 'pending_optout',\n    updated_at = NOW()\nWHERE status = 'expired'\n  AND updated_at < NOW() - INTERVAL '7 days'\nRETURNING id, remote_jid, push_name;",
+        "options": {}
+      },
+      "id": "detect-pending-optout",
+      "name": "Supabase - Detecta Pending Optout",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [480, 600],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-optout-id",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-pending-optout",
+      "name": "Filtro - Tem Pending Optout?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [730, 600]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE gk_leads\nSET status = 'pending_optout', updated_at = NOW()\nWHERE conversation_id = '{{ $json.id }}'\n  AND status NOT IN ('decisor_captured', 'opted_out', 'closed', 'failed');",
+        "options": {}
+      },
+      "id": "update-lead-pending-optout",
+      "name": "Supabase - Lead Pending Optout",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [980, 600],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO gk_messages (conversation_id, direction, content, message_type, stage)\nVALUES (\n  '{{ $json.id }}',\n  'outbound',\n  'Oi! Notei que faz um tempo que não conversamos. Deseja continuar recebendo nossas mensagens? Responda *SIM* para continuar ou *NÃO* para encerrar. 🙏',\n  'text',\n  'pending_optout'\n);",
+        "options": {}
+      },
+      "id": "save-optout-msg",
+      "name": "Supabase - Salva Msg Opt-out",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1230, 600],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE_NAME }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.EVOLUTION_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": {{ $env.SDR_GATEKEEPER_MODE === 'dev' ? JSON.stringify($env.TEST_PHONE) : JSON.stringify($json.remote_jid) }},\n  \"text\": \"Oi! Notei que faz um tempo que não conversamos. Deseja continuar recebendo nossas mensagens? Responda *SIM* para continuar ou *NÃO* para encerrar. 🙏\"\n}",
+        "options": { "timeout": 15000 }
+      },
+      "id": "send-optout-question",
+      "name": "Evolution - Envia Opt-out",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1480, 600],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO gk_events (conversation_id, event_type, event_data)\nVALUES (\n  '{{ $json.id }}',\n  'optout_question_sent',\n  '{\"remote_jid\": \"{{ $json.remote_jid }}\"}'::jsonb\n);",
+        "options": {}
+      },
+      "id": "event-pending-optout",
+      "name": "Supabase - Evento Opt-out",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1730, 600],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Branch 4: Detecta Archived (3d após pending_optout sem resposta)\n-- Transição: pending_optout → archived\nUPDATE gk_conversations\nSET status = 'archived',\n    updated_at = NOW()\nWHERE status = 'pending_optout'\n  AND updated_at < NOW() - INTERVAL '3 days'\nRETURNING id, remote_jid, push_name;",
+        "options": {}
+      },
+      "id": "detect-archived",
+      "name": "Supabase - Detecta Archived",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [480, 800],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-archived-id",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-archived",
+      "name": "Filtro - Tem Archived?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [730, 800]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE gk_leads\nSET status = 'archived', updated_at = NOW()\nWHERE conversation_id = '{{ $json.id }}'\n  AND status NOT IN ('decisor_captured', 'opted_out', 'closed', 'failed');",
+        "options": {}
+      },
+      "id": "update-lead-archived",
+      "name": "Supabase - Lead Archived",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [980, 800],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO gk_events (conversation_id, event_type, event_data)\nVALUES (\n  '{{ $json.id }}',\n  'conversation_archived',\n  '{\"remote_jid\": \"{{ $json.remote_jid }}\", \"reason\": \"no_optout_response\"}'::jsonb\n);",
+        "options": {}
+      },
+      "id": "event-archived",
+      "name": "Supabase - Evento Archived",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1230, 800],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Branch 5: Detecta Closed (30d após archived sem resposta)\n-- Transição: archived → closed (análise manual)\nUPDATE gk_conversations\nSET status = 'closed',\n    updated_at = NOW()\nWHERE status = 'archived'\n  AND updated_at < NOW() - INTERVAL '30 days'\nRETURNING id, remote_jid, push_name;",
+        "options": {}
+      },
+      "id": "detect-closed",
+      "name": "Supabase - Detecta Closed",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [480, 1000],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-closed-id",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-closed",
+      "name": "Filtro - Tem Closed?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [730, 1000]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE gk_leads\nSET status = 'closed', updated_at = NOW()\nWHERE conversation_id = '{{ $json.id }}'\n  AND status NOT IN ('decisor_captured', 'opted_out', 'failed');",
+        "options": {}
+      },
+      "id": "update-lead-closed",
+      "name": "Supabase - Lead Closed",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [980, 1000],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO gk_events (conversation_id, event_type, event_data)\nVALUES (\n  '{{ $json.id }}',\n  'conversation_closed',\n  '{\"remote_jid\": \"{{ $json.remote_jid }}\", \"reason\": \"30d_no_response_after_archived\"}'::jsonb\n);",
+        "options": {}
+      },
+      "id": "event-closed",
+      "name": "Supabase - Evento Closed",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1230, 1000],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -133,73 +540,80 @@
     "Cron - A cada 30min": {
       "main": [
         [
-          {
-            "node": "Supabase - Expira Conversas",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Supabase - Detecta Stalled",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Supabase - Expira Conversas": {
-      "main": [
-        [
-          {
-            "node": "Processa Expiradas",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Processa Expiradas": {
-      "main": [
-        [
-          {
-            "node": "Supabase - Evento Expiração",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Supabase - Evento Expiração": {
-      "main": [
-        [
-          {
-            "node": "Supabase - Atualiza Leads Expirados",
-            "type": "main",
-            "index": 0
-          }
+          { "node": "Supabase - Detecta Stalled",       "type": "main", "index": 0 },
+          { "node": "Supabase - Expira Conversas",       "type": "main", "index": 0 },
+          { "node": "Supabase - Detecta Pending Optout", "type": "main", "index": 0 },
+          { "node": "Supabase - Detecta Archived",       "type": "main", "index": 0 },
+          { "node": "Supabase - Detecta Closed",         "type": "main", "index": 0 }
         ]
       ]
     },
     "Supabase - Detecta Stalled": {
-      "main": [
-        [
-          {
-            "node": "Processa Stalled",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[ { "node": "Filtro - Tem Stalled?", "type": "main", "index": 0 } ]]
     },
-    "Processa Stalled": {
-      "main": [
-        [
-          {
-            "node": "Supabase - Evento Stalled",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Filtro - Tem Stalled?": {
+      "main": [[ { "node": "Supabase - Lead Stalled", "type": "main", "index": 0 } ]]
+    },
+    "Supabase - Lead Stalled": {
+      "main": [[ { "node": "Supabase - Salva Nudge 1", "type": "main", "index": 0 } ]]
+    },
+    "Supabase - Salva Nudge 1": {
+      "main": [[ { "node": "Evolution - Envia Nudge 1", "type": "main", "index": 0 } ]]
+    },
+    "Evolution - Envia Nudge 1": {
+      "main": [[ { "node": "Supabase - Evento Stalled", "type": "main", "index": 0 } ]]
+    },
+
+    "Supabase - Expira Conversas": {
+      "main": [[ { "node": "Filtro - Tem Expiradas?", "type": "main", "index": 0 } ]]
+    },
+    "Filtro - Tem Expiradas?": {
+      "main": [[ { "node": "Supabase - Lead Expirado", "type": "main", "index": 0 } ]]
+    },
+    "Supabase - Lead Expirado": {
+      "main": [[ { "node": "Supabase - Salva Nudge 2", "type": "main", "index": 0 } ]]
+    },
+    "Supabase - Salva Nudge 2": {
+      "main": [[ { "node": "Evolution - Envia Nudge 2", "type": "main", "index": 0 } ]]
+    },
+    "Evolution - Envia Nudge 2": {
+      "main": [[ { "node": "Supabase - Evento Expiração", "type": "main", "index": 0 } ]]
+    },
+
+    "Supabase - Detecta Pending Optout": {
+      "main": [[ { "node": "Filtro - Tem Pending Optout?", "type": "main", "index": 0 } ]]
+    },
+    "Filtro - Tem Pending Optout?": {
+      "main": [[ { "node": "Supabase - Lead Pending Optout", "type": "main", "index": 0 } ]]
+    },
+    "Supabase - Lead Pending Optout": {
+      "main": [[ { "node": "Supabase - Salva Msg Opt-out", "type": "main", "index": 0 } ]]
+    },
+    "Supabase - Salva Msg Opt-out": {
+      "main": [[ { "node": "Evolution - Envia Opt-out", "type": "main", "index": 0 } ]]
+    },
+    "Evolution - Envia Opt-out": {
+      "main": [[ { "node": "Supabase - Evento Opt-out", "type": "main", "index": 0 } ]]
+    },
+
+    "Supabase - Detecta Archived": {
+      "main": [[ { "node": "Filtro - Tem Archived?", "type": "main", "index": 0 } ]]
+    },
+    "Filtro - Tem Archived?": {
+      "main": [[ { "node": "Supabase - Lead Archived", "type": "main", "index": 0 } ]]
+    },
+    "Supabase - Lead Archived": {
+      "main": [[ { "node": "Supabase - Evento Archived", "type": "main", "index": 0 } ]]
+    },
+
+    "Supabase - Detecta Closed": {
+      "main": [[ { "node": "Filtro - Tem Closed?", "type": "main", "index": 0 } ]]
+    },
+    "Filtro - Tem Closed?": {
+      "main": [[ { "node": "Supabase - Lead Closed", "type": "main", "index": 0 } ]]
+    },
+    "Supabase - Lead Closed": {
+      "main": [[ { "node": "Supabase - Evento Closed", "type": "main", "index": 0 } ]]
     }
   },
   "settings": {
@@ -207,16 +621,11 @@
     "saveManualExecutions": true,
     "callerPolicy": "workflowsFromSameOwner",
     "saveExecutionProgress": true,
-    "executionTimeout": 300
+    "executionTimeout": 300,
+    "timezone": "America/Sao_Paulo"
   },
   "tags": [
-    {
-      "name": "SDR",
-      "id": "1"
-    },
-    {
-      "name": "Maintenance",
-      "id": "4"
-    }
+    { "name": "SDR",         "id": "1" },
+    { "name": "Maintenance", "id": "4" }
   ]
 }

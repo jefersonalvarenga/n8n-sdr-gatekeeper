@@ -208,7 +208,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE gk_conversations\nSET message_count = message_count + 1,\n    last_message_at = NOW(),\n    status = CASE WHEN status = 'stalled' THEN 'gathering_decisor' ELSE status END,\n    expires_at = NOW() + INTERVAL '4 hours'\nWHERE id = '{{ $json.conversationId }}'\nRETURNING id, status;",
+        "query": "-- Reabre conversa de qualquer status de expiry\n-- Para expired/pending_optout/archived: reseta ciclo (last_reset_at + fastapi_session_id)\nUPDATE gk_conversations\nSET message_count = message_count + 1,\n    last_message_at = NOW(),\n    status = CASE\n      WHEN status IN ('stalled', 'expired', 'pending_optout', 'archived') THEN 'gathering_decisor'\n      ELSE status\n    END,\n    last_reset_at = CASE\n      WHEN status IN ('expired', 'pending_optout', 'archived') THEN NOW()\n      ELSE last_reset_at\n    END,\n    fastapi_session_id = CASE\n      WHEN status IN ('expired', 'pending_optout', 'archived') THEN NULL\n      ELSE fastapi_session_id\n    END,\n    expires_at = NOW() + INTERVAL '4 hours'\nWHERE id = '{{ $json.conversationId }}'\nRETURNING id, status;",
         "options": {}
       },
       "id": "update-conversation",
@@ -242,7 +242,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE gk_leads\nSET status = 'gathering_decisor', updated_at = NOW()\nWHERE conversation_id = '{{ $json.conversationId }}'\n  AND status = 'created';",
+        "query": "-- Atualiza lead para gathering_decisor ao reabrir (qualquer status de expiry)\nUPDATE gk_leads\nSET status = 'gathering_decisor', updated_at = NOW()\nWHERE conversation_id = '{{ $json.conversationId }}'\n  AND status NOT IN ('decisor_captured', 'opted_out', 'closed', 'failed');",
         "options": {}
       },
       "id": "update-lead-gathering",
@@ -1011,6 +1011,56 @@
         980
       ],
       "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Verifica se a conversa deve ser bloqueada antes de chamar a IA\n// Caso 1: opted_out → ignorar completamente\n// Caso 2: pending_optout + palavra-chave de encerramento → marcar opted_out\nconst data = $input.first().json;\n\nif (data.currentStatus === 'opted_out') {\n  return [{ json: { ...data, _shouldBlock: true, _blockType: 'opted_out' } }];\n}\n\nif (data.currentStatus === 'pending_optout') {\n  const msg = (data.messageContent || '').toLowerCase().trim();\n  const optOutWords = ['sim', 'não quero', 'nao quero', 'encerrar', 'encerra', 'para', 'pare', 'stop', 'não', 'nao'];\n  const confirmed = optOutWords.some(w => msg === w || msg.startsWith(w + ' ') || msg.endsWith(' ' + w));\n  if (confirmed) {\n    return [{ json: { ...data, _shouldBlock: true, _blockType: 'confirm_optout' } }];\n  }\n}\n\nreturn [{ json: { ...data, _shouldBlock: false, _blockType: null } }];"
+      },
+      "id": "verifica-bloqueios",
+      "name": "Verifica Bloqueios",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1870, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-should-block",
+              "leftValue": "={{ $json._shouldBlock }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "deve-bloquear",
+      "name": "Deve Bloquear?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2100, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE gk_conversations\nSET status = 'opted_out', updated_at = NOW()\nWHERE id = '{{ $json.conversationId }}';\n\nUPDATE gk_leads\nSET status = 'opted_out', updated_at = NOW()\nWHERE conversation_id = '{{ $json.conversationId }}';\n\nINSERT INTO gk_events (conversation_id, event_type, event_data)\nVALUES (\n  '{{ $json.conversationId }}',\n  'opted_out',\n  '{\"message\": \"{{ ($json.messageContent).replace(/'/g, \"''\") }}\", \"remote_jid\": \"{{ $json.remoteJid }}\"}'::jsonb\n);",
+        "options": {}
+      },
+      "id": "marca-opted-out",
+      "name": "Supabase - Marca Opted Out",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2330, 300],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
     }
   ],
   "connections": {
@@ -1109,7 +1159,47 @@
       "main": [
         [
           {
+            "node": "Verifica Bloqueios",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verifica Bloqueios": {
+      "main": [
+        [
+          {
+            "node": "Deve Bloquear?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deve Bloquear?": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Marca Opted Out",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Supabase - Atualiza Conversa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Marca Opted Out": {
+      "main": [
+        [
+          {
+            "node": "Respond - Ignorada",
             "type": "main",
             "index": 0
           }
