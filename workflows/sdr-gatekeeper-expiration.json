@@ -108,7 +108,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"number\": {{ $env.SDR_GATEKEEPER_MODE === 'dev' ? JSON.stringify($env.TEST_PHONE) : JSON.stringify($json.remote_jid) }},\n  \"text\": \"Oi! Tudo bem? Estava esperando sua resposta para continuar. Pode me ajudar? 😊\"\n}",
+        "jsonBody": "={\n  \"number\": {{ $('Supabase - Lê Config').first().json.environment === 'homolog' ? JSON.stringify(($('Supabase - Lê Config').first().json.homolog_phone || '').replace(/\\D/g,'')) : JSON.stringify($json.remote_jid) }},\n  \"text\": \"Oi! Tudo bem? Estava esperando sua resposta para continuar. Pode me ajudar? 😊\"\n}",
         "options": { "timeout": 15000 }
       },
       "id": "send-nudge-1",
@@ -229,7 +229,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"number\": {{ $env.SDR_GATEKEEPER_MODE === 'dev' ? JSON.stringify($env.TEST_PHONE) : JSON.stringify($json.remote_jid) }},\n  \"text\": \"Olá! Voltando para dar uma oportunidade de continuarmos nossa conversa. Fico à disposição! 👋\"\n}",
+        "jsonBody": "={\n  \"number\": {{ $('Supabase - Lê Config').first().json.environment === 'homolog' ? JSON.stringify(($('Supabase - Lê Config').first().json.homolog_phone || '').replace(/\\D/g,'')) : JSON.stringify($json.remote_jid) }},\n  \"text\": \"Olá! Voltando para dar uma oportunidade de continuarmos nossa conversa. Fico à disposição! 👋\"\n}",
         "options": { "timeout": 15000 }
       },
       "id": "send-nudge-2",
@@ -350,7 +350,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"number\": {{ $env.SDR_GATEKEEPER_MODE === 'dev' ? JSON.stringify($env.TEST_PHONE) : JSON.stringify($json.remote_jid) }},\n  \"text\": \"Oi! Notei que faz um tempo que não conversamos. Deseja continuar recebendo nossas mensagens? Responda *SIM* para continuar ou *NÃO* para encerrar. 🙏\"\n}",
+        "jsonBody": "={\n  \"number\": {{ $('Supabase - Lê Config').first().json.environment === 'homolog' ? JSON.stringify(($('Supabase - Lê Config').first().json.homolog_phone || '').replace(/\\D/g,'')) : JSON.stringify($json.remote_jid) }},\n  \"text\": \"Oi! Notei que faz um tempo que não conversamos. Deseja continuar recebendo nossas mensagens? Responda *SIM* para continuar ou *NÃO* para encerrar. 🙏\"\n}",
         "options": { "timeout": 15000 }
       },
       "id": "send-optout-question",
@@ -534,10 +534,35 @@
           "name": "Postgres SDR Gatekeeper"
         }
       }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT environment, homolog_phone FROM sdr_config WHERE id = 1;",
+        "options": {}
+      },
+      "id": "read-sdr-config",
+      "name": "Supabase - Lê Config",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [250, 900],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
     }
   ],
   "connections": {
     "Cron - A cada 30min": {
+      "main": [
+        [
+          { "node": "Supabase - Lê Config", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Supabase - Lê Config": {
       "main": [
         [
           { "node": "Supabase - Detecta Stalled",       "type": "main", "index": 0 },

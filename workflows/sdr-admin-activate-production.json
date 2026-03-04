@@ -1,0 +1,182 @@
+{
+  "name": "SDR Admin - Ativa Produção",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sdr-admin-activate-production",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-admin",
+      "name": "Webhook - Ativa Produção",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "sdr-admin-activate-production"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Valida ADMIN_SECRET para proteger o endpoint\n// Aceita o token via header 'x-admin-secret' ou query param 'secret'\nconst body   = $input.first().json.body   || {};\nconst query  = $input.first().json.query  || {};\nconst headers= $input.first().json.headers|| {};\n\nconst provided = headers['x-admin-secret'] || query.secret || body.secret || '';\nconst expected = $env.ADMIN_SECRET || '';\n\nif (!expected) {\n  // ADMIN_SECRET não configurado — bloqueia por segurança\n  return [{ json: { authorized: false, reason: 'ADMIN_SECRET_not_configured' } }];\n}\n\nif (provided !== expected) {\n  return [{ json: { authorized: false, reason: 'invalid_secret' } }];\n}\n\nreturn [{ json: { authorized: true } }];"
+      },
+      "id": "check-auth",
+      "name": "Verifica Autorização",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-authorized",
+              "leftValue": "={{ $json.authorized }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-auth",
+      "name": "Autorizado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [710, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: 'Unauthorized', message: 'Header x-admin-secret ou query param secret inválido.' }) }}",
+        "options": { "responseCode": 401 }
+      },
+      "id": "respond-unauthorized",
+      "name": "Respond - Não Autorizado",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [940, 480]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  deleted_conversations,\n  deleted_discovered_cases,\n  deleted_decisors,\n  reset_leads\nFROM gk_cleanup_homolog();",
+        "options": {}
+      },
+      "id": "run-cleanup",
+      "name": "Supabase - Cleanup Homolog",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [940, 300],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE sdr_config\nSET environment  = 'production',\n    updated_at   = NOW()\nWHERE id = 1\nRETURNING id, environment, homolog_phone, updated_at;",
+        "options": {}
+      },
+      "id": "activate-production",
+      "name": "Supabase - Ativa Produção",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1170, 300],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cleanup = $('Supabase - Cleanup Homolog').first().json;\nconst config  = $input.first().json;\n\nreturn [{ json: {\n  activated:   true,\n  environment: config.environment,\n  activatedAt: config.updated_at,\n  cleanup: {\n    deleted_conversations:    cleanup.deleted_conversations    ?? 0,\n    deleted_discovered_cases: cleanup.deleted_discovered_cases ?? 0,\n    deleted_decisors:         cleanup.deleted_decisors         ?? 0,\n    reset_leads:              cleanup.reset_leads              ?? 0\n  }\n} }];"
+      },
+      "id": "format-response",
+      "name": "Code - Formata Resumo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1400, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "respond-ok",
+      "name": "Respond - Sucesso",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1630, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - Ativa Produção": {
+      "main": [
+        [
+          { "node": "Verifica Autorização", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Verifica Autorização": {
+      "main": [
+        [
+          { "node": "Autorizado?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Autorizado?": {
+      "main": [
+        [
+          { "node": "Supabase - Cleanup Homolog", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Respond - Não Autorizado", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Supabase - Cleanup Homolog": {
+      "main": [
+        [
+          { "node": "Supabase - Ativa Produção", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Supabase - Ativa Produção": {
+      "main": [
+        [
+          { "node": "Code - Formata Resumo", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Code - Formata Resumo": {
+      "main": [
+        [
+          { "node": "Respond - Sucesso", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "",
+    "saveExecutionProgress": true,
+    "executionTimeout": 60,
+    "timezone": "America/Sao_Paulo"
+  },
+  "staticData": null,
+  "tags": ["admin", "sdr"],
+  "triggerCount": 1,
+  "updatedAt": "2026-03-04T00:00:00.000Z",
+  "versionId": "1"
+}

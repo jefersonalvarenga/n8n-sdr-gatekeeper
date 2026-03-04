@@ -984,7 +984,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Sinaliza isHomolog=true quando estamos em modo de desenvolvimento.\n// Usa SDR_GATEKEEPER_MODE === 'dev' como fonte única de verdade —\n// não depende mais de TEST_PHONE no inbound.\n// Assim o controle de roteamento de homologação fica centralizado\n// em uma única variável de ambiente.\n\nconst data = $input.first().json;\nconst isDevMode = ($env.SDR_GATEKEEPER_MODE || '').toLowerCase() === 'dev';\n\nreturn [{ json: {\n  ...data,\n  isHomolog: isDevMode\n} }];"
+        "jsCode": "// Sinaliza isHomolog=true quando sdr_config.environment = 'homolog'.\n// Fonte de verdade: sdr_config, lido pelo nó upstream \"Supabase - Lê Config\".\n// Dados da mensagem: acessados por nome de nó (payload de \"É Reset?\" → NO).\n\nconst config = $input.first().json;         // saída de \"Supabase - Lê Config\"\nconst data   = $('É Reset?').first().json;  // payload da mensagem\n\nreturn [{ json: {\n  ...data,\n  isHomolog: (config.environment || '') === 'homolog'\n} }];"
       },
       "id": "resolve-jid-homolog",
       "name": "Resolve JID (Homolog?)",
@@ -1136,6 +1136,27 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [2330, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT environment, homolog_phone FROM sdr_config WHERE id = 1;",
+        "options": {}
+      },
+      "id": "read-sdr-config",
+      "name": "Supabase - Lê Config",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        930,
+        500
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
     }
   ],
   "connections": {
@@ -1217,6 +1238,17 @@
             "index": 0
           }
         ],
+        [
+          {
+            "node": "Supabase - Lê Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Lê Config": {
+      "main": [
         [
           {
             "node": "Resolve JID (Homolog?)",
