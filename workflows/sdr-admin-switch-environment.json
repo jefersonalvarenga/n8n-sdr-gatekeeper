@@ -102,7 +102,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE sdr_config\nSET environment = 'production',\n    updated_at  = NOW()\nWHERE id = 1\nRETURNING id, environment, homolog_phone, updated_at;",
+        "query": "SELECT\n  out_environment   AS environment,\n  out_homolog_phone AS homolog_phone,\n  out_updated_at    AS updated_at\nFROM gk_switch_environment('production');",
         "options": {}
       },
       "id": "switch-to-production",
@@ -120,7 +120,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE sdr_config\nSET environment  = 'homolog',\n    homolog_phone = CASE\n                     WHEN '{{ $('Verifica Autorização').first().json.homologPhone }}' <> ''\n                     THEN '{{ $('Verifica Autorização').first().json.homologPhone }}'\n                     ELSE homolog_phone\n                   END,\n    updated_at   = NOW()\nWHERE id = 1\nRETURNING id, environment, homolog_phone, updated_at;",
+        "query": "SELECT\n  out_environment   AS environment,\n  out_homolog_phone AS homolog_phone,\n  out_updated_at    AS updated_at\nFROM gk_switch_environment(\n  'homolog',\n  '{{ $('Verifica Autorização').first().json.homologPhone }}'\n);",
         "options": {}
       },
       "id": "switch-to-homolog",
