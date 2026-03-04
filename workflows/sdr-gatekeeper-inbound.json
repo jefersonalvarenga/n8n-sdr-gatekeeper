@@ -984,7 +984,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Detecta se a mensagem veio do número de homologação (TEST_PHONE).\n// Se sim, sinaliza isHomolog=true para o nó de busca de conversa\n// usar a conversa ativa mais recente em vez do remote_jid exato.\n\nconst data = $input.first().json;\nconst testPhone = ($env.TEST_PHONE || '').replace(/\\D/g, '');\nconst incomingPhone = data.remoteJid.replace('@s.whatsapp.net', '');\n\nreturn [{ json: {\n  ...data,\n  isHomolog: testPhone !== '' && incomingPhone === testPhone\n} }];"
+        "jsCode": "// Sinaliza isHomolog=true quando estamos em modo de desenvolvimento.\n// Usa SDR_GATEKEEPER_MODE === 'dev' como fonte única de verdade —\n// não depende mais de TEST_PHONE no inbound.\n// Assim o controle de roteamento de homologação fica centralizado\n// em uma única variável de ambiente.\n\nconst data = $input.first().json;\nconst isDevMode = ($env.SDR_GATEKEEPER_MODE || '').toLowerCase() === 'dev';\n\nreturn [{ json: {\n  ...data,\n  isHomolog: isDevMode\n} }];"
       },
       "id": "resolve-jid-homolog",
       "name": "Resolve JID (Homolog?)",
