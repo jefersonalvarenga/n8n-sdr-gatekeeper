@@ -1,0 +1,239 @@
+{
+  "name": "SDR Admin - Switch Environment",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sdr-admin-switch-environment",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-admin",
+      "name": "Webhook - Switch Environment",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "sdr-admin-switch-environment"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Valida ADMIN_SECRET e extrai parâmetros do body\n//\n// Body esperado:\n//   { \"environment\": \"production\" | \"homolog\", \"homolog_phone\": \"5511...\" (opcional) }\n//\n// Auth: header x-admin-secret ou query param ?secret=...\n\nconst body    = $input.first().json.body    || {};\nconst query   = $input.first().json.query   || {};\nconst headers = $input.first().json.headers || {};\n\nconst provided = headers['x-admin-secret'] || query.secret || body.secret || '';\nconst expected = $env.ADMIN_SECRET || '';\n\nif (!expected) {\n  return [{ json: { authorized: false, reason: 'ADMIN_SECRET_not_configured' } }];\n}\nif (provided !== expected) {\n  return [{ json: { authorized: false, reason: 'invalid_secret' } }];\n}\n\nconst environment  = (body.environment || '').toLowerCase();\nif (environment !== 'production' && environment !== 'homolog') {\n  return [{ json: { authorized: false, reason: 'environment must be \"production\" or \"homolog\"' } }];\n}\n\nconst homologPhone = (body.homolog_phone || '').replace(/\\D/g, '');\n\nreturn [{ json: { authorized: true, environment, homologPhone } }];"
+      },
+      "id": "check-auth",
+      "name": "Verifica Autorização",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-authorized",
+              "leftValue": "={{ $json.authorized }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-auth",
+      "name": "Autorizado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [710, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: 'Unauthorized / Bad Request', message: $json.reason }) }}",
+        "options": { "responseCode": 401 }
+      },
+      "id": "respond-unauthorized",
+      "name": "Respond - Erro",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [940, 500]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-is-production",
+              "leftValue": "={{ $json.environment }}",
+              "rightValue": "production",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-environment",
+      "name": "É Produção?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [940, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  deleted_conversations,\n  deleted_discovered_cases,\n  deleted_decisors,\n  reset_leads\nFROM gk_cleanup_homolog();",
+        "options": {}
+      },
+      "id": "run-cleanup",
+      "name": "Supabase - Cleanup Homolog",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1170, 200],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE sdr_config\nSET environment = 'production',\n    updated_at  = NOW()\nWHERE id = 1\nRETURNING id, environment, homolog_phone, updated_at;",
+        "options": {}
+      },
+      "id": "switch-to-production",
+      "name": "Supabase - Switch Produção",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1400, 200],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE sdr_config\nSET environment  = 'homolog',\n    homolog_phone = CASE\n                     WHEN '{{ $('Verifica Autorização').first().json.homologPhone }}' <> ''\n                     THEN '{{ $('Verifica Autorização').first().json.homologPhone }}'\n                     ELSE homolog_phone\n                   END,\n    updated_at   = NOW()\nWHERE id = 1\nRETURNING id, environment, homolog_phone, updated_at;",
+        "options": {}
+      },
+      "id": "switch-to-homolog",
+      "name": "Supabase - Switch Homolog",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1170, 400],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const config  = $input.first().json;\nconst isProduction = config.environment === 'production';\n\nconst response = {\n  activated:    true,\n  environment:  config.environment,\n  homologPhone: config.homolog_phone || null,\n  activatedAt:  config.updated_at\n};\n\nif (isProduction) {\n  const cleanup = $('Supabase - Cleanup Homolog').first().json;\n  response.cleanup = {\n    deleted_conversations:    cleanup.deleted_conversations    ?? 0,\n    deleted_discovered_cases: cleanup.deleted_discovered_cases ?? 0,\n    deleted_decisors:         cleanup.deleted_decisors         ?? 0,\n    reset_leads:              cleanup.reset_leads              ?? 0\n  };\n}\n\nreturn [{ json: response }];"
+      },
+      "id": "format-response",
+      "name": "Code - Formata Resumo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1630, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "respond-ok",
+      "name": "Respond - Sucesso",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1860, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - Switch Environment": {
+      "main": [
+        [
+          { "node": "Verifica Autorização", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Verifica Autorização": {
+      "main": [
+        [
+          { "node": "Autorizado?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Autorizado?": {
+      "main": [
+        [
+          { "node": "É Produção?", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Respond - Erro", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "É Produção?": {
+      "main": [
+        [
+          { "node": "Supabase - Cleanup Homolog", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Supabase - Switch Homolog", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Supabase - Cleanup Homolog": {
+      "main": [
+        [
+          { "node": "Supabase - Switch Produção", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Supabase - Switch Produção": {
+      "main": [
+        [
+          { "node": "Code - Formata Resumo", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Supabase - Switch Homolog": {
+      "main": [
+        [
+          { "node": "Code - Formata Resumo", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Code - Formata Resumo": {
+      "main": [
+        [
+          { "node": "Respond - Sucesso", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "",
+    "saveExecutionProgress": true,
+    "executionTimeout": 60,
+    "timezone": "America/Sao_Paulo"
+  },
+  "staticData": null,
+  "tags": ["admin", "sdr"],
+  "triggerCount": 1,
+  "updatedAt": "2026-03-04T00:00:00.000Z",
+  "versionId": "1"
+}
