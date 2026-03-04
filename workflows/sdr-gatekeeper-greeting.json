@@ -53,9 +53,18 @@
                 "operation": "equals",
                 "singleValue": true
               }
+            },
+            {
+              "id": "condition-dev-mode",
+              "leftValue": "={{ $env.SDR_GATEKEEPER_MODE }}",
+              "rightValue": "dev",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
           ],
-          "combinator": "and"
+          "combinator": "or"
         },
         "options": {}
       },
