@@ -234,7 +234,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        900,
+        930,
         500
       ]
     },
@@ -249,8 +249,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1100,
-        620
+        1160,
+        600
       ],
       "credentials": {
         "postgres": {
@@ -288,7 +288,7 @@
       "typeVersion": 2,
       "position": [
         2330,
-        150
+        400
       ]
     },
     {
@@ -614,7 +614,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        700,
+        1420,
         500
       ]
     },
@@ -1140,7 +1140,7 @@
       "name": "Supabase - Marca Opted Out",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [2330, 300],
+      "position": [2330, 560],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
