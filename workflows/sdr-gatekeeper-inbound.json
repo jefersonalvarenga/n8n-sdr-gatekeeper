@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ============================================\n// Extrai dados relevantes do payload da Evolution API\n// Formato: messages.upsert event\n// ============================================\n\nconst body = $input.first().json.body;\n\n// Ignora mensagens que não são do tipo esperado\nif (!body || !body.data) {\n  return [{ json: { ignore: true, reason: 'no_data' } }];\n}\n\nconst data = body.data;\nconst event = body.event;\n\n// Só processa messages.upsert\nif (event !== 'messages.upsert') {\n  return [{ json: { ignore: true, reason: 'not_message_event', event } }];\n}\n\nconst message = data.message;\nconst key = data.key;\n\n// Ignora mensagens enviadas por nós (outbound)\nif (key.fromMe === true) {\n  return [{ json: { ignore: true, reason: 'from_me' } }];\n}\n\n// Ignora mensagens de grupo\nif (key.remoteJid.includes('@g.us')) {\n  return [{ json: { ignore: true, reason: 'group_message' } }];\n}\n\n// Ignora status broadcasts\nif (key.remoteJid === 'status@broadcast') {\n  return [{ json: { ignore: true, reason: 'status_broadcast' } }];\n}\n\n// Extrai conteúdo da mensagem\nlet messageContent = '';\nlet messageType = 'text';\nlet contactName = null;\nlet contactPhone = null;\n\nif (message.conversation) {\n  messageContent = message.conversation;\n} else if (message.extendedTextMessage?.text) {\n  messageContent = message.extendedTextMessage.text;\n} else if (message.imageMessage?.caption) {\n  messageContent = message.imageMessage.caption;\n  messageType = 'image';\n} else if (message.audioMessage) {\n  messageContent = '[audio]';\n  messageType = 'audio';\n} else if (message.documentMessage) {\n  messageContent = '[document]';\n  messageType = 'document';\n} else if (message.reactionMessage) {\n  messageContent = message.reactionMessage.text || '';\n  messageType = 'reaction';\n} else if (message.contactMessage) {\n  // Recepção compartilhou contato do gestor via vCard — missão cumprida\n  const contact = message.contactMessage;\n  const vcard = contact.vcard || '';\n  // Extrai número WhatsApp do vCard: TEL;waid=5511982044215:+55 11 ...\n  const waidMatch = vcard.match(/waid=(\\d+)/);\n  contactPhone = waidMatch ? waidMatch[1] : '';\n  contactName = contact.displayName || '';\n  messageType = 'contact';\n  messageContent = `[contato compartilhado: ${contactName}${contactPhone ? ' | +' + contactPhone : ''}]`;\n} else {\n  // Tipo de mensagem não suportado\n  return [{ json: { ignore: true, reason: 'unsupported_message_type' } }];\n}\n\n// Monta payload limpo\nreturn [{\n  json: {\n    ignore: false,\n    remoteJid: key.remoteJid,\n    pushName: data.pushName || '',\n    wamid: key.id,\n    messageContent: messageContent.trim(),\n    messageType,\n    contactName,\n    contactPhone,\n    instanceName: body.instance || '',\n    timestamp: data.messageTimestamp || Math.floor(Date.now() / 1000),\n    // Número limpo (sem @s.whatsapp.net)\n    phoneNumber: key.remoteJid.replace('@s.whatsapp.net', '')\n  }\n}];"
+        "jsCode": "// ============================================\n// Extrai dados relevantes do payload da Evolution API\n// Formato: messages.upsert event\n// ============================================\n\nconst body = $input.first().json.body;\n\n// Ignora mensagens que não são do tipo esperado\nif (!body || !body.data) {\n  return [{ json: { ignore: true, reason: 'no_data' } }];\n}\n\nconst data = body.data;\nconst event = body.event;\n\n// Só processa messages.upsert\nif (event !== 'messages.upsert') {\n  return [{ json: { ignore: true, reason: 'not_message_event', event } }];\n}\n\nconst message = data.message;\nconst key = data.key;\n\n// Mensagem enviada pelo operador no app — sinaliza para pausar a conversa\nif (key.fromMe === true) {\n  return [{ json: { ignore: true, isOperatorTakeover: true, reason: 'from_me', remoteJid: key.remoteJid } }];\n}\n\n// Ignora mensagens de grupo\nif (key.remoteJid.includes('@g.us')) {\n  return [{ json: { ignore: true, reason: 'group_message' } }];\n}\n\n// Ignora status broadcasts\nif (key.remoteJid === 'status@broadcast') {\n  return [{ json: { ignore: true, reason: 'status_broadcast' } }];\n}\n\n// Extrai conteúdo da mensagem\nlet messageContent = '';\nlet messageType = 'text';\nlet contactName = null;\nlet contactPhone = null;\n\nif (message.conversation) {\n  messageContent = message.conversation;\n} else if (message.extendedTextMessage?.text) {\n  messageContent = message.extendedTextMessage.text;\n} else if (message.imageMessage?.caption) {\n  messageContent = message.imageMessage.caption;\n  messageType = 'image';\n} else if (message.audioMessage) {\n  messageContent = '[audio]';\n  messageType = 'audio';\n} else if (message.documentMessage) {\n  messageContent = '[document]';\n  messageType = 'document';\n} else if (message.reactionMessage) {\n  messageContent = message.reactionMessage.text || '';\n  messageType = 'reaction';\n} else if (message.contactMessage) {\n  // Recepção compartilhou contato do gestor via vCard — missão cumprida\n  const contact = message.contactMessage;\n  const vcard = contact.vcard || '';\n  // Extrai número WhatsApp do vCard: TEL;waid=5511982044215:+55 11 ...\n  const waidMatch = vcard.match(/waid=(\\d+)/);\n  contactPhone = waidMatch ? waidMatch[1] : '';\n  contactName = contact.displayName || '';\n  messageType = 'contact';\n  messageContent = `[contato compartilhado: ${contactName}${contactPhone ? ' | +' + contactPhone : ''}]`;\n} else {\n  // Tipo de mensagem não suportado\n  return [{ json: { ignore: true, reason: 'unsupported_message_type' } }];\n}\n\n// Monta payload limpo\nreturn [{\n  json: {\n    ignore: false,\n    remoteJid: key.remoteJid,\n    pushName: data.pushName || '',\n    wamid: key.id,\n    messageContent: messageContent.trim(),\n    messageType,\n    contactName,\n    contactPhone,\n    instanceName: body.instance || '',\n    timestamp: data.messageTimestamp || Math.floor(Date.now() / 1000),\n    // Número limpo (sem @s.whatsapp.net)\n    phoneNumber: key.remoteJid.replace('@s.whatsapp.net', '')\n  }\n}];"
       },
       "id": "parse-evolution-payload",
       "name": "Parse Evolution Payload",
@@ -171,7 +171,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n  COALESCE(c.id::text, '') AS id,\n  COALESCE(c.status, '') AS status,\n  COALESCE(c.message_count, 0) AS message_count,\n  COALESCE(c.fastapi_session_id, '') AS fastapi_session_id,\n  COALESCE(c.clinic_name, '') AS clinic_name,\n  COALESCE(c.remote_jid, '') AS clinic_phone\nFROM (SELECT 1) AS dummy\nLEFT JOIN gk_conversations c\n  ON (\n    (NOT {{ $json.isHomolog }} AND c.remote_jid = '{{ $json.remoteJid }}')\n    OR\n    ({{ $json.isHomolog }} = true)\n  )\nORDER BY c.updated_at DESC NULLS LAST\nLIMIT 1;",
+        "query": "SELECT\n  COALESCE(c.id::text, '') AS id,\n  COALESCE(c.status, '') AS status,\n  COALESCE(c.message_count, 0) AS message_count,\n  COALESCE(c.fastapi_session_id, '') AS fastapi_session_id,\n  COALESCE(c.clinic_name, '') AS clinic_name,\n  COALESCE(c.remote_jid, '') AS clinic_phone,\n  COALESCE(c.paused, false) AS paused\nFROM (SELECT 1) AS dummy\nLEFT JOIN gk_conversations c\n  ON (\n    (NOT {{ $json.isHomolog }} AND c.remote_jid = '{{ $json.remoteJid }}')\n    OR\n    ({{ $json.isHomolog }} = true)\n  )\nORDER BY c.updated_at DESC NULLS LAST\nLIMIT 1;",
         "options": {}
       },
       "id": "lookup-conversation",
@@ -194,7 +194,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Merge dados da mensagem com dados da conversa\nconst message = $('É Reset?').first().json;\nconst dbResults = $input.first().json;\n\nreturn [{\n  json: {\n    ...message,\n    conversationId: dbResults.id || null,\n    fastapiSessionId: dbResults.fastapi_session_id || null,\n    currentStatus: dbResults.status || null,\n    clinicName: dbResults.clinic_name || '',\n    clinicPhone: dbResults.clinic_phone || message.remoteJid\n  }\n}];"
+        "jsCode": "// Merge dados da mensagem com dados da conversa\nconst message = $('É Reset?').first().json;\nconst dbResults = $input.first().json;\n\nreturn [{\n  json: {\n    ...message,\n    conversationId: dbResults.id || null,\n    fastapiSessionId: dbResults.fastapi_session_id || null,\n    currentStatus: dbResults.status || null,\n    clinicName: dbResults.clinic_name || '',\n    clinicPhone: dbResults.clinic_phone || message.remoteJid,\n    paused: dbResults.paused || false\n  }\n}];"
       },
       "id": "merge-context",
       "name": "Merge - Contexto da Conversa",
@@ -203,6 +203,92 @@
       "position": [
         1660,
         400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-is-operator-takeover",
+              "leftValue": "={{ $json.isOperatorTakeover }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-operator-takeover",
+      "name": "É Mensagem do Operador?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        900,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE gk_conversations\nSET paused    = true,\n    paused_at  = NOW(),\n    updated_at = NOW()\nWHERE remote_jid = '{{ $json.remoteJid }}'\n  AND status NOT IN ('decisor_captured', 'opted_out', 'closed');",
+        "options": {}
+      },
+      "id": "pausa-conversa",
+      "name": "Supabase - Pausa Conversa",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1100,
+        620
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-is-paused-block",
+              "leftValue": "={{ $json._blockType }}",
+              "rightValue": "paused",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-pausa-operador",
+      "name": "É Pausa do Operador?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2330,
+        150
       ]
     },
     {
@@ -1014,7 +1100,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Verifica se a conversa deve ser bloqueada antes de chamar a IA\n// Caso 1: opted_out → ignorar completamente\n// Caso 2: pending_optout + palavra-chave de encerramento → marcar opted_out\nconst data = $input.first().json;\n\nif (data.currentStatus === 'opted_out') {\n  return [{ json: { ...data, _shouldBlock: true, _blockType: 'opted_out' } }];\n}\n\nif (data.currentStatus === 'pending_optout') {\n  const msg = (data.messageContent || '').toLowerCase().trim();\n  const optOutWords = ['sim', 'não quero', 'nao quero', 'encerrar', 'encerra', 'para', 'pare', 'stop', 'não', 'nao'];\n  const confirmed = optOutWords.some(w => msg === w || msg.startsWith(w + ' ') || msg.endsWith(' ' + w));\n  if (confirmed) {\n    return [{ json: { ...data, _shouldBlock: true, _blockType: 'confirm_optout' } }];\n  }\n}\n\nreturn [{ json: { ...data, _shouldBlock: false, _blockType: null } }];"
+        "jsCode": "// Verifica se a conversa deve ser bloqueada antes de chamar a IA\n// Caso 0: paused → operador assumiu, IA para de responder\n// Caso 1: opted_out → ignorar completamente\n// Caso 2: pending_optout + palavra-chave de encerramento → marcar opted_out\nconst data = $input.first().json;\n\n// PRIORIDADE MÁXIMA: operador pausou a conversa\nif (data.paused === true) {\n  return [{ json: { ...data, _shouldBlock: true, _blockType: 'paused' } }];\n}\n\nif (data.currentStatus === 'opted_out') {\n  return [{ json: { ...data, _shouldBlock: true, _blockType: 'opted_out' } }];\n}\n\nif (data.currentStatus === 'pending_optout') {\n  const msg = (data.messageContent || '').toLowerCase().trim();\n  const optOutWords = ['sim', 'não quero', 'nao quero', 'encerrar', 'encerra', 'para', 'pare', 'stop', 'não', 'nao'];\n  const confirmed = optOutWords.some(w => msg === w || msg.startsWith(w + ' ') || msg.endsWith(' ' + w));\n  if (confirmed) {\n    return [{ json: { ...data, _shouldBlock: true, _blockType: 'confirm_optout' } }];\n  }\n}\n\nreturn [{ json: { ...data, _shouldBlock: false, _blockType: null } }];"
       },
       "id": "verifica-bloqueios",
       "name": "Verifica Bloqueios",
@@ -1095,6 +1181,35 @@
             "index": 0
           }
         ],
+        [
+          {
+            "node": "É Mensagem do Operador?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É Mensagem do Operador?": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Pausa Conversa",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Ignorada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Pausa Conversa": {
+      "main": [
         [
           {
             "node": "Respond - Ignorada",
@@ -1181,7 +1296,7 @@
       "main": [
         [
           {
-            "node": "Supabase - Marca Opted Out",
+            "node": "É Pausa do Operador?",
             "type": "main",
             "index": 0
           }
@@ -1189,6 +1304,24 @@
         [
           {
             "node": "Supabase - Atualiza Conversa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É Pausa do Operador?": {
+      "main": [
+        [
+          {
+            "node": "Respond - Ignorada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase - Marca Opted Out",
             "type": "main",
             "index": 0
           }
