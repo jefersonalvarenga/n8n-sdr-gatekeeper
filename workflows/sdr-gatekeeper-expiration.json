@@ -16,9 +16,11 @@
       "name": "Cron - A cada 30min",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [250, 600]
+      "position": [
+        250,
+        600
+      ]
     },
-
     {
       "parameters": {
         "operation": "executeQuery",
@@ -29,7 +31,10 @@
       "name": "Supabase - Detecta Stalled",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [480, 200],
+      "position": [
+        480,
+        200
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -40,13 +45,21 @@
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "id": "cond-stalled-id",
               "leftValue": "={{ $json.id }}",
               "rightValue": "",
-              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
             }
           ],
           "combinator": "and"
@@ -57,25 +70,32 @@
       "name": "Filtro - Tem Stalled?",
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2,
-      "position": [730, 200]
+      "position": [
+        730,
+        200
+      ]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE gk_leads\nSET status = 'stalled', updated_at = NOW()\nWHERE conversation_id = '{{ $json.id }}'\n  AND status NOT IN ('decisor_captured', 'opted_out', 'closed', 'failed');",
+        "query": "UPDATE gk_leads l\nSET status = 'stalled', updated_at = NOW()\nFROM gk_conversations c\nWHERE l.conversation_id = '{{ $json.id }}'\n  AND l.conversation_id = c.id\n  AND l.status NOT IN ('decisor_captured', 'opted_out', 'closed', 'failed')\nRETURNING c.id, c.remote_jid, c.last_message_at, c.push_name;",
         "options": {}
       },
       "id": "update-lead-stalled",
       "name": "Supabase - Lead Stalled",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [980, 200],
+      "position": [
+        980,
+        200
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
           "name": "Postgres SDR Gatekeeper"
         }
-      }
+      },
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -87,7 +107,10 @@
       "name": "Supabase - Salva Nudge 1",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1230, 200],
+      "position": [
+        1230,
+        200
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -102,20 +125,31 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $env.EVOLUTION_API_KEY }}" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "apikey",
+              "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"number\": {{ $('Supabase - Lê Config').first().json.environment === 'homolog' ? JSON.stringify(($('Supabase - Lê Config').first().json.homolog_phone || '').replace(/\\D/g,'')) : JSON.stringify($json.remote_jid) }},\n  \"text\": \"Oi! Tudo bem? Estava esperando sua resposta para continuar. Pode me ajudar? 😊\"\n}",
-        "options": { "timeout": 15000 }
+        "options": {
+          "timeout": 15000
+        }
       },
       "id": "send-nudge-1",
       "name": "Evolution - Envia Nudge 1",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1480, 200],
+      "position": [
+        1480,
+        200
+      ],
       "retryOnFail": true,
       "maxTries": 2,
       "waitBetweenTries": 3000,
@@ -131,7 +165,10 @@
       "name": "Supabase - Evento Stalled",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1730, 200],
+      "position": [
+        1730,
+        200
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -139,7 +176,6 @@
         }
       }
     },
-
     {
       "parameters": {
         "operation": "executeQuery",
@@ -150,7 +186,10 @@
       "name": "Supabase - Expira Conversas",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [480, 400],
+      "position": [
+        480,
+        400
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -161,13 +200,21 @@
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "id": "cond-expired-id",
               "leftValue": "={{ $json.id }}",
               "rightValue": "",
-              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
             }
           ],
           "combinator": "and"
@@ -178,25 +225,32 @@
       "name": "Filtro - Tem Expiradas?",
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2,
-      "position": [730, 400]
+      "position": [
+        730,
+        400
+      ]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE gk_leads\nSET status = 'expired', updated_at = NOW()\nWHERE conversation_id = '{{ $json.id }}'\n  AND status NOT IN ('decisor_captured', 'opted_out', 'closed', 'failed');",
+        "query": "UPDATE gk_leads l\nSET status = 'expired', updated_at = NOW()\nFROM gk_conversations c\nWHERE l.conversation_id = '{{ $json.id }}'\n  AND l.conversation_id = c.id\n  AND l.status NOT IN ('decisor_captured', 'opted_out', 'closed', 'failed')\nRETURNING c.id, c.remote_jid, c.last_message_at, c.push_name;",
         "options": {}
       },
       "id": "update-lead-expired",
       "name": "Supabase - Lead Expirado",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [980, 400],
+      "position": [
+        980,
+        400
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
           "name": "Postgres SDR Gatekeeper"
         }
-      }
+      },
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -208,7 +262,10 @@
       "name": "Supabase - Salva Nudge 2",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1230, 400],
+      "position": [
+        1230,
+        400
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -223,20 +280,31 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $env.EVOLUTION_API_KEY }}" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "apikey",
+              "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"number\": {{ $('Supabase - Lê Config').first().json.environment === 'homolog' ? JSON.stringify(($('Supabase - Lê Config').first().json.homolog_phone || '').replace(/\\D/g,'')) : JSON.stringify($json.remote_jid) }},\n  \"text\": \"Olá! Voltando para dar uma oportunidade de continuarmos nossa conversa. Fico à disposição! 👋\"\n}",
-        "options": { "timeout": 15000 }
+        "options": {
+          "timeout": 15000
+        }
       },
       "id": "send-nudge-2",
       "name": "Evolution - Envia Nudge 2",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1480, 400],
+      "position": [
+        1480,
+        400
+      ],
       "retryOnFail": true,
       "maxTries": 2,
       "waitBetweenTries": 3000,
@@ -252,7 +320,10 @@
       "name": "Supabase - Evento Expiração",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1730, 400],
+      "position": [
+        1730,
+        400
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -260,7 +331,6 @@
         }
       }
     },
-
     {
       "parameters": {
         "operation": "executeQuery",
@@ -271,7 +341,10 @@
       "name": "Supabase - Detecta Pending Optout",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [480, 600],
+      "position": [
+        480,
+        600
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -282,13 +355,21 @@
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "id": "cond-optout-id",
               "leftValue": "={{ $json.id }}",
               "rightValue": "",
-              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
             }
           ],
           "combinator": "and"
@@ -299,25 +380,32 @@
       "name": "Filtro - Tem Pending Optout?",
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2,
-      "position": [730, 600]
+      "position": [
+        730,
+        600
+      ]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE gk_leads\nSET status = 'pending_optout', updated_at = NOW()\nWHERE conversation_id = '{{ $json.id }}'\n  AND status NOT IN ('decisor_captured', 'opted_out', 'closed', 'failed');",
+        "query": "UPDATE gk_leads l\nSET status = 'pending_optout', updated_at = NOW()\nFROM gk_conversations c\nWHERE l.conversation_id = '{{ $json.id }}'\n  AND l.conversation_id = c.id\n  AND l.status NOT IN ('decisor_captured', 'opted_out', 'closed', 'failed')\nRETURNING c.id, c.remote_jid, c.last_message_at, c.push_name;",
         "options": {}
       },
       "id": "update-lead-pending-optout",
       "name": "Supabase - Lead Pending Optout",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [980, 600],
+      "position": [
+        980,
+        600
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
           "name": "Postgres SDR Gatekeeper"
         }
-      }
+      },
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -329,7 +417,10 @@
       "name": "Supabase - Salva Msg Opt-out",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1230, 600],
+      "position": [
+        1230,
+        600
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -344,20 +435,31 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $env.EVOLUTION_API_KEY }}" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "apikey",
+              "value": "={{ $env.EVOLUTION_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"number\": {{ $('Supabase - Lê Config').first().json.environment === 'homolog' ? JSON.stringify(($('Supabase - Lê Config').first().json.homolog_phone || '').replace(/\\D/g,'')) : JSON.stringify($json.remote_jid) }},\n  \"text\": \"Oi! Notei que faz um tempo que não conversamos. Deseja continuar recebendo nossas mensagens? Responda *SIM* para continuar ou *NÃO* para encerrar. 🙏\"\n}",
-        "options": { "timeout": 15000 }
+        "options": {
+          "timeout": 15000
+        }
       },
       "id": "send-optout-question",
       "name": "Evolution - Envia Opt-out",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1480, 600],
+      "position": [
+        1480,
+        600
+      ],
       "retryOnFail": true,
       "maxTries": 2,
       "waitBetweenTries": 3000,
@@ -373,7 +475,10 @@
       "name": "Supabase - Evento Opt-out",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1730, 600],
+      "position": [
+        1730,
+        600
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -381,7 +486,6 @@
         }
       }
     },
-
     {
       "parameters": {
         "operation": "executeQuery",
@@ -392,7 +496,10 @@
       "name": "Supabase - Detecta Archived",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [480, 800],
+      "position": [
+        480,
+        800
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -403,13 +510,21 @@
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "id": "cond-archived-id",
               "leftValue": "={{ $json.id }}",
               "rightValue": "",
-              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
             }
           ],
           "combinator": "and"
@@ -420,25 +535,32 @@
       "name": "Filtro - Tem Archived?",
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2,
-      "position": [730, 800]
+      "position": [
+        730,
+        800
+      ]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE gk_leads\nSET status = 'archived', updated_at = NOW()\nWHERE conversation_id = '{{ $json.id }}'\n  AND status NOT IN ('decisor_captured', 'opted_out', 'closed', 'failed');",
+        "query": "UPDATE gk_leads l\nSET status = 'archived', updated_at = NOW()\nFROM gk_conversations c\nWHERE l.conversation_id = '{{ $json.id }}'\n  AND l.conversation_id = c.id\n  AND l.status NOT IN ('decisor_captured', 'opted_out', 'closed', 'failed')\nRETURNING c.id, c.remote_jid, c.last_message_at, c.push_name;",
         "options": {}
       },
       "id": "update-lead-archived",
       "name": "Supabase - Lead Archived",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [980, 800],
+      "position": [
+        980,
+        800
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
           "name": "Postgres SDR Gatekeeper"
         }
-      }
+      },
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -450,7 +572,10 @@
       "name": "Supabase - Evento Archived",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1230, 800],
+      "position": [
+        1230,
+        800
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -458,7 +583,6 @@
         }
       }
     },
-
     {
       "parameters": {
         "operation": "executeQuery",
@@ -469,7 +593,10 @@
       "name": "Supabase - Detecta Closed",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [480, 1000],
+      "position": [
+        480,
+        1000
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -480,13 +607,21 @@
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "id": "cond-closed-id",
               "leftValue": "={{ $json.id }}",
               "rightValue": "",
-              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
             }
           ],
           "combinator": "and"
@@ -497,25 +632,32 @@
       "name": "Filtro - Tem Closed?",
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2,
-      "position": [730, 1000]
+      "position": [
+        730,
+        1000
+      ]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE gk_leads\nSET status = 'closed', updated_at = NOW()\nWHERE conversation_id = '{{ $json.id }}'\n  AND status NOT IN ('decisor_captured', 'opted_out', 'failed');",
+        "query": "UPDATE gk_leads l\nSET status = 'closed', updated_at = NOW()\nFROM gk_conversations c\nWHERE l.conversation_id = '{{ $json.id }}'\n  AND l.conversation_id = c.id\n  AND l.status NOT IN ('decisor_captured', 'opted_out', 'failed')\nRETURNING c.id, c.remote_jid, c.last_message_at, c.push_name;",
         "options": {}
       },
       "id": "update-lead-closed",
       "name": "Supabase - Lead Closed",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [980, 1000],
+      "position": [
+        980,
+        1000
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
           "name": "Postgres SDR Gatekeeper"
         }
-      }
+      },
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -527,7 +669,10 @@
       "name": "Supabase - Evento Closed",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1230, 1000],
+      "position": [
+        1230,
+        1000
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -545,7 +690,10 @@
       "name": "Supabase - Lê Config",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [250, 900],
+      "position": [
+        250,
+        900
+      ],
       "credentials": {
         "postgres": {
           "id": "SUPABASE_CREDENTIALS_ID",
@@ -558,87 +706,275 @@
     "Cron - A cada 30min": {
       "main": [
         [
-          { "node": "Supabase - Lê Config", "type": "main", "index": 0 }
+          {
+            "node": "Supabase - Lê Config",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Supabase - Lê Config": {
       "main": [
         [
-          { "node": "Supabase - Detecta Stalled",       "type": "main", "index": 0 },
-          { "node": "Supabase - Expira Conversas",       "type": "main", "index": 0 },
-          { "node": "Supabase - Detecta Pending Optout", "type": "main", "index": 0 },
-          { "node": "Supabase - Detecta Archived",       "type": "main", "index": 0 },
-          { "node": "Supabase - Detecta Closed",         "type": "main", "index": 0 }
+          {
+            "node": "Supabase - Detecta Stalled",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase - Expira Conversas",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase - Detecta Pending Optout",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase - Detecta Archived",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase - Detecta Closed",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Supabase - Detecta Stalled": {
-      "main": [[ { "node": "Filtro - Tem Stalled?", "type": "main", "index": 0 } ]]
+      "main": [
+        [
+          {
+            "node": "Filtro - Tem Stalled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Filtro - Tem Stalled?": {
-      "main": [[ { "node": "Supabase - Lead Stalled", "type": "main", "index": 0 } ]]
+      "main": [
+        [
+          {
+            "node": "Supabase - Lead Stalled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Supabase - Lead Stalled": {
-      "main": [[ { "node": "Supabase - Salva Nudge 1", "type": "main", "index": 0 } ]]
+      "main": [
+        [
+          {
+            "node": "Supabase - Salva Nudge 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Supabase - Salva Nudge 1": {
-      "main": [[ { "node": "Evolution - Envia Nudge 1", "type": "main", "index": 0 } ]]
+      "main": [
+        [
+          {
+            "node": "Evolution - Envia Nudge 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Evolution - Envia Nudge 1": {
-      "main": [[ { "node": "Supabase - Evento Stalled", "type": "main", "index": 0 } ]]
+      "main": [
+        [
+          {
+            "node": "Supabase - Evento Stalled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-
     "Supabase - Expira Conversas": {
-      "main": [[ { "node": "Filtro - Tem Expiradas?", "type": "main", "index": 0 } ]]
+      "main": [
+        [
+          {
+            "node": "Filtro - Tem Expiradas?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Filtro - Tem Expiradas?": {
-      "main": [[ { "node": "Supabase - Lead Expirado", "type": "main", "index": 0 } ]]
+      "main": [
+        [
+          {
+            "node": "Supabase - Lead Expirado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Supabase - Lead Expirado": {
-      "main": [[ { "node": "Supabase - Salva Nudge 2", "type": "main", "index": 0 } ]]
+      "main": [
+        [
+          {
+            "node": "Supabase - Salva Nudge 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Supabase - Salva Nudge 2": {
-      "main": [[ { "node": "Evolution - Envia Nudge 2", "type": "main", "index": 0 } ]]
+      "main": [
+        [
+          {
+            "node": "Evolution - Envia Nudge 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Evolution - Envia Nudge 2": {
-      "main": [[ { "node": "Supabase - Evento Expiração", "type": "main", "index": 0 } ]]
+      "main": [
+        [
+          {
+            "node": "Supabase - Evento Expiração",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-
     "Supabase - Detecta Pending Optout": {
-      "main": [[ { "node": "Filtro - Tem Pending Optout?", "type": "main", "index": 0 } ]]
+      "main": [
+        [
+          {
+            "node": "Filtro - Tem Pending Optout?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Filtro - Tem Pending Optout?": {
-      "main": [[ { "node": "Supabase - Lead Pending Optout", "type": "main", "index": 0 } ]]
+      "main": [
+        [
+          {
+            "node": "Supabase - Lead Pending Optout",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Supabase - Lead Pending Optout": {
-      "main": [[ { "node": "Supabase - Salva Msg Opt-out", "type": "main", "index": 0 } ]]
+      "main": [
+        [
+          {
+            "node": "Supabase - Salva Msg Opt-out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Supabase - Salva Msg Opt-out": {
-      "main": [[ { "node": "Evolution - Envia Opt-out", "type": "main", "index": 0 } ]]
+      "main": [
+        [
+          {
+            "node": "Evolution - Envia Opt-out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Evolution - Envia Opt-out": {
-      "main": [[ { "node": "Supabase - Evento Opt-out", "type": "main", "index": 0 } ]]
+      "main": [
+        [
+          {
+            "node": "Supabase - Evento Opt-out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-
     "Supabase - Detecta Archived": {
-      "main": [[ { "node": "Filtro - Tem Archived?", "type": "main", "index": 0 } ]]
+      "main": [
+        [
+          {
+            "node": "Filtro - Tem Archived?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Filtro - Tem Archived?": {
-      "main": [[ { "node": "Supabase - Lead Archived", "type": "main", "index": 0 } ]]
+      "main": [
+        [
+          {
+            "node": "Supabase - Lead Archived",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Supabase - Lead Archived": {
-      "main": [[ { "node": "Supabase - Evento Archived", "type": "main", "index": 0 } ]]
+      "main": [
+        [
+          {
+            "node": "Supabase - Evento Archived",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-
     "Supabase - Detecta Closed": {
-      "main": [[ { "node": "Filtro - Tem Closed?", "type": "main", "index": 0 } ]]
+      "main": [
+        [
+          {
+            "node": "Filtro - Tem Closed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Filtro - Tem Closed?": {
-      "main": [[ { "node": "Supabase - Lead Closed", "type": "main", "index": 0 } ]]
+      "main": [
+        [
+          {
+            "node": "Supabase - Lead Closed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Supabase - Lead Closed": {
-      "main": [[ { "node": "Supabase - Evento Closed", "type": "main", "index": 0 } ]]
+      "main": [
+        [
+          {
+            "node": "Supabase - Evento Closed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -650,7 +986,13 @@
     "timezone": "America/Sao_Paulo"
   },
   "tags": [
-    { "name": "SDR",         "id": "1" },
-    { "name": "Maintenance", "id": "4" }
+    {
+      "name": "SDR",
+      "id": "1"
+    },
+    {
+      "name": "Maintenance",
+      "id": "4"
+    }
   ]
 }
