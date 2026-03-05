@@ -191,7 +191,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "-- Reabre conversa de qualquer status de expiry\n-- Para expired/pending_optout/archived: reseta ciclo (last_reset_at + fastapi_session_id)\nUPDATE gk_conversations\nSET message_count = message_count + 1,\n    last_message_at = NOW(),\n    status = CASE\n      WHEN status IN ('stalled', 'expired', 'pending_optout', 'archived') THEN 'gathering_decisor'\n      ELSE status\n    END,\n    last_reset_at = CASE\n      WHEN status IN ('expired', 'pending_optout', 'archived') THEN NOW()\n      ELSE last_reset_at\n    END,\n    fastapi_session_id = CASE\n      WHEN status IN ('expired', 'pending_optout', 'archived') THEN NULL\n      ELSE fastapi_session_id\n    END,\n    expires_at = NOW() + INTERVAL '4 hours'\nWHERE id = '{{ $json.conversationId }}'\nRETURNING id, status;",
+        "query": "-- Reabre conversa de qualquer status de expiry\n-- Para expired/pending_optout/archived: reseta ciclo (last_reset_at + fastapi_session_id)\n-- WHERE usa remote_jid (sempre disponível) para evitar erro uuid quando conversationId é null\nUPDATE gk_conversations\nSET message_count = message_count + 1,\n    last_message_at = NOW(),\n    status = CASE\n      WHEN status IN ('stalled', 'expired', 'pending_optout', 'archived') THEN 'gathering_decisor'\n      ELSE status\n    END,\n    last_reset_at = CASE\n      WHEN status IN ('expired', 'pending_optout', 'archived') THEN NOW()\n      ELSE last_reset_at\n    END,\n    fastapi_session_id = CASE\n      WHEN status IN ('expired', 'pending_optout', 'archived') THEN NULL\n      ELSE fastapi_session_id\n    END,\n    expires_at = NOW() + INTERVAL '4 hours'\nWHERE remote_jid = '{{ $json.remoteJid }}'\nRETURNING id, status;",
         "options": {}
       },
       "id": "update-conversation",
@@ -207,7 +207,8 @@
           "id": "SUPABASE_CREDENTIALS_ID",
           "name": "Postgres SDR Gatekeeper"
         }
-      }
+      },
+      "alwaysOutputData": true
     },
     {
       "parameters": {
