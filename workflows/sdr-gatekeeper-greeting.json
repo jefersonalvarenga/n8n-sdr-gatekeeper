@@ -535,7 +535,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT COALESCE(paused, false) AS paused\nFROM gk_conversations\nWHERE remote_jid = '{{ $(\"Seleciona Template\").first().json.remote_jid }}'\nLIMIT 1;",
+        "query": "SELECT COALESCE(\n  (SELECT paused FROM gk_conversations WHERE remote_jid = '{{ $(\"Seleciona Template\").first().json.remote_jid }}' LIMIT 1),\n  false\n) AS paused;",
         "options": {}
       },
       "id": "check-paused-greeting",
