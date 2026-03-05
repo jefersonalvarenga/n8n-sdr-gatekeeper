@@ -357,7 +357,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE gk_conversations\nSET\n  status = '{{ $json.conversationStage }}',\n  decisor_name = CASE\n    WHEN {{ $json.extractedManagerName ? 'true' : 'false' }} = 'true'\n    THEN '{{ ($json.extractedManagerName).replace(/'/g, \"''\") }}'\n    ELSE decisor_name\n  END,\n  decisor_phone = CASE\n    WHEN {{ $json.extractedManagerContact ? 'true' : 'false' }} = 'true'\n    THEN '{{ ($json.extractedManagerContact).replace(/'/g, \"''\") }}'\n    ELSE decisor_phone\n  END,\n  decisor_email = CASE\n    WHEN {{ $json.extractedManagerEmail ? 'true' : 'false' }} = 'true'\n    THEN '{{ ($json.extractedManagerEmail).replace(/'/g, \"''\") }}'\n    ELSE decisor_email\n  END,\n  contact_type = CASE\n    WHEN {{ $json.contactType ? 'true' : 'false' }} = 'true'\n    THEN '{{ $json.contactType }}'\n    ELSE contact_type\n  END\nWHERE id = '{{ $json.conversationId }}';",
+        "query": "UPDATE gk_conversations\nSET\n  status = '{{ $json.conversationStage }}',\n  decisor_name = CASE\n    WHEN {{ $json.extractedManagerName ? 'true' : 'false' }} = 'true'\n    THEN '{{ ($json.extractedManagerName).replace(/'/g, \"''\") }}'\n    ELSE decisor_name\n  END,\n  decisor_phone = CASE\n    WHEN {{ $json.extractedManagerContact ? 'true' : 'false' }} = 'true'\n    THEN '{{ ($json.extractedManagerContact).replace(/'/g, \"''\") }}'\n    ELSE decisor_phone\n  END,\n  decisor_email = CASE\n    WHEN {{ $json.extractedManagerEmail ? 'true' : 'false' }} = 'true'\n    THEN '{{ ($json.extractedManagerEmail).replace(/'/g, \"''\") }}'\n    ELSE decisor_email\n  END,\n  contact_type = CASE\n    WHEN {{ $json.contactType ? 'true' : 'false' }} = 'true'\n    THEN '{{ $json.contactType }}'\n    ELSE contact_type\n  END\nWHERE id = '{{ $json.conversationId }}';\n\n-- Atualiza lead para failed quando conversa encerrada em negativa\nUPDATE gk_leads\nSET status = 'failed', updated_at = NOW()\nWHERE conversation_id = '{{ $json.conversationId }}'\n  AND '{{ $json.conversationStage }}' = 'denied'\n  AND status NOT IN ('decisor_captured', 'opted_out', 'closed', 'failed');",
         "options": {}
       },
       "id": "update-conversation-status",
@@ -1860,14 +1860,20 @@
     },
     "Supabase - Atualiza Lead decisor_captured": {
       "main": [
-        []
+        [
+          {
+            "node": "Evolution - Reação ❤️",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Conversa Encerrada?": {
       "main": [
         [
           {
-            "node": "Evolution - Reação ❤️",
+            "node": "Supabase - Histórico Completo",
             "type": "main",
             "index": 0
           }
