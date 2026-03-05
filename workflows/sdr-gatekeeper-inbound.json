@@ -2009,7 +2009,13 @@
     },
     "Em Cooldown Bypass?": {
       "main": [
-        [],
+        [
+          {
+            "node": "Verifica Bloqueios",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Verifica Bloqueios",
