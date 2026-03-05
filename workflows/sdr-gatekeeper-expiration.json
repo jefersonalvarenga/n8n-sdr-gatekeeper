@@ -179,7 +179,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "-- Branch 2: Expira Conversas (24h sem resposta)\n-- Transição: greeting_sent | gathering_decisor | stalled → expired\n-- Reseta ciclo: last_reset_at e fastapi_session_id\nUPDATE gk_conversations\nSET status = 'expired',\n    last_reset_at = NOW(),\n    fastapi_session_id = NULL,\n    updated_at = NOW()\nWHERE status IN ('greeting_sent', 'gathering_decisor', 'stalled')\n  AND last_message_at < NOW() - INTERVAL '24 hours'\nRETURNING id, remote_jid, push_name, last_message_at;",
+        "query": "-- Branch 2: Expira Conversas (24h sem resposta)\n-- Transição: greeting_sent | gathering_decisor | stalled → expired\n-- Reseta ciclo: last_reset_at e fastapi_session_id\nUPDATE gk_conversations\nSET status = 'expired',\n    last_reset_at = NOW(),\n    fastapi_session_id = NULL,\n    updated_at = NOW()\nWHERE status IN ('greeting_sent', 'gathering_decisor', 'stalled')\n  AND last_message_at < NOW() - INTERVAL '24 hours'\n  AND paused IS NOT TRUE\nRETURNING id, remote_jid, push_name, last_message_at;",
         "options": {}
       },
       "id": "expire-conversations",
