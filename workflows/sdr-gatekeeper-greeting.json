@@ -378,7 +378,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3710,
+        3940,
         300
       ],
       "retryOnFail": true,
@@ -531,6 +531,61 @@
           "name": "Postgres SDR Gatekeeper"
         }
       }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COALESCE(paused, false) AS paused\nFROM gk_conversations\nWHERE remote_jid = '{{ $(\"Seleciona Template\").first().json.remote_jid }}'\nLIMIT 1;",
+        "options": {}
+      },
+      "id": "check-paused-greeting",
+      "name": "Supabase - Verifica Pausa",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        3595,
+        300
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-not-paused",
+              "leftValue": "={{ $json.paused }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-paused-greeting",
+      "name": "Não Está Pausada?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [
+        3710,
+        300
+      ]
     }
   ],
   "connections": {
@@ -692,7 +747,7 @@
       "main": [
         [
           {
-            "node": "Evolution - Envia Greeting",
+            "node": "Supabase - Verifica Pausa",
             "type": "main",
             "index": 0
           }
@@ -771,6 +826,28 @@
         [
           {
             "node": "Horário Comercial?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Verifica Pausa": {
+      "main": [
+        [
+          {
+            "node": "Não Está Pausada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Não Está Pausada?": {
+      "main": [
+        [
+          {
+            "node": "Evolution - Envia Greeting",
             "type": "main",
             "index": 0
           }

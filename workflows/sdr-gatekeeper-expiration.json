@@ -24,7 +24,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "-- Branch 1: Detecta Stalled (2h sem resposta)\n-- Transição: greeting_sent | gathering_decisor → stalled\nUPDATE gk_conversations\nSET status = 'stalled',\n    updated_at = NOW()\nWHERE status IN ('greeting_sent', 'gathering_decisor')\n  AND last_message_at < NOW() - INTERVAL '2 hours'\nRETURNING id, remote_jid, push_name, last_message_at;",
+        "query": "-- Branch 1: Detecta Stalled (2h sem resposta)\n-- Transição: greeting_sent | gathering_decisor → stalled\nUPDATE gk_conversations\nSET status = 'stalled',\n    updated_at = NOW()\nWHERE status IN ('greeting_sent', 'gathering_decisor')\n  AND last_message_at < NOW() - INTERVAL '2 hours'\n  AND paused IS NOT TRUE\nRETURNING id, remote_jid, push_name, last_message_at;",
         "options": {}
       },
       "id": "detect-stalled",
@@ -334,7 +334,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "-- Branch 3: Detecta Pending Optout (7d após expirado sem resposta)\n-- Transição: expired → pending_optout\nUPDATE gk_conversations\nSET status = 'pending_optout',\n    updated_at = NOW()\nWHERE status = 'expired'\n  AND updated_at < NOW() - INTERVAL '7 days'\nRETURNING id, remote_jid, push_name;",
+        "query": "-- Branch 3: Detecta Pending Optout (7d após expirado sem resposta)\n-- Transição: expired → pending_optout\nUPDATE gk_conversations\nSET status = 'pending_optout',\n    updated_at = NOW()\nWHERE status = 'expired'\n  AND updated_at < NOW() - INTERVAL '7 days'\n  AND paused IS NOT TRUE\nRETURNING id, remote_jid, push_name;",
         "options": {}
       },
       "id": "detect-pending-optout",
@@ -489,7 +489,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "-- Branch 4: Detecta Archived (3d após pending_optout sem resposta)\n-- Transição: pending_optout → archived\nUPDATE gk_conversations\nSET status = 'archived',\n    updated_at = NOW()\nWHERE status = 'pending_optout'\n  AND updated_at < NOW() - INTERVAL '3 days'\nRETURNING id, remote_jid, push_name;",
+        "query": "-- Branch 4: Detecta Archived (3d após pending_optout sem resposta)\n-- Transição: pending_optout → archived\nUPDATE gk_conversations\nSET status = 'archived',\n    updated_at = NOW()\nWHERE status = 'pending_optout'\n  AND updated_at < NOW() - INTERVAL '3 days'\n  AND paused IS NOT TRUE\nRETURNING id, remote_jid, push_name;",
         "options": {}
       },
       "id": "detect-archived",
@@ -586,7 +586,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "-- Branch 5: Detecta Closed (30d após archived sem resposta)\n-- Transição: archived → closed (análise manual)\nUPDATE gk_conversations\nSET status = 'closed',\n    updated_at = NOW()\nWHERE status = 'archived'\n  AND updated_at < NOW() - INTERVAL '30 days'\nRETURNING id, remote_jid, push_name;",
+        "query": "-- Branch 5: Detecta Closed (30d após archived sem resposta)\n-- Transição: archived → closed (análise manual)\nUPDATE gk_conversations\nSET status = 'closed',\n    updated_at = NOW()\nWHERE status = 'archived'\n  AND updated_at < NOW() - INTERVAL '30 days'\n  AND paused IS NOT TRUE\nRETURNING id, remote_jid, push_name;",
         "options": {}
       },
       "id": "detect-closed",
