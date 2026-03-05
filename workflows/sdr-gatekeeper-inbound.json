@@ -60,8 +60,8 @@
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2,
       "position": [
-        700,
-        300
+        920,
+        360
       ]
     },
     {
@@ -1389,6 +1389,61 @@
         1410,
         50
       ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-operator-takeover",
+              "leftValue": "={{ $json.isOperatorTakeover }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-operator-takeover",
+      "name": "É Operador?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE gk_conversations\nSET paused     = true,\n    updated_at  = NOW()\nWHERE remote_jid = '{{ $json.remoteJid }}'\n  AND paused IS DISTINCT FROM true\nRETURNING id, remote_jid, paused;",
+        "options": {}
+      },
+      "id": "pause-conversation",
+      "name": "Supabase - Pausa Conversa",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        920,
+        200
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
     }
   ],
   "connections": {
@@ -1407,7 +1462,7 @@
       "main": [
         [
           {
-            "node": "Filtro - Mensagem Válida?",
+            "node": "É Operador?",
             "type": "main",
             "index": 0
           }
@@ -2007,6 +2062,24 @@
           }
         ],
         []
+      ]
+    },
+    "É Operador?": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Pausa Conversa",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Filtro - Mensagem Válida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
