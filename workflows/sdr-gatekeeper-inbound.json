@@ -75,7 +75,7 @@
           "conditions": [
             {
               "id": "condition-reset",
-              "leftValue": "={{ $json.messageContent.trim().toLowerCase() }}",
+              "leftValue": "={{ $(\"Parse Evolution Payload\").first().json.messageContent?.trim().toLowerCase() }}",
               "rightValue": "reset",
               "operator": {
                 "type": "string",
@@ -177,7 +177,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Merge dados da mensagem com dados da conversa\nconst message = $('É Reset?').first().json;\nconst dbResults = $input.first().json;\n\nreturn [{\n  json: {\n    ...message,\n    conversationId: dbResults.id || null,\n    fastapiSessionId: dbResults.fastapi_session_id || null,\n    currentStatus: dbResults.status || null,\n    clinicName: dbResults.clinic_name || '',\n    clinicPhone: dbResults.clinic_phone || message.remoteJid,\n    paused: dbResults.paused || false,\n    botBypassAttempts: dbResults.bot_bypass_attempts || 0,\n    botBypassCooldownUntil: dbResults.bot_bypass_cooldown_until || null,\n    sdrName: $('Supabase - Lê Config').first().json.sdr_name || 'Vera'\n  }\n}];"
+        "jsCode": "// Merge dados da mensagem com dados da conversa\nconst message = $('Parse Evolution Payload').first().json;\nconst dbResults = $input.first().json;\n\nreturn [{\n  json: {\n    ...message,\n    conversationId: dbResults.id || null,\n    fastapiSessionId: dbResults.fastapi_session_id || null,\n    currentStatus: dbResults.status || null,\n    clinicName: dbResults.clinic_name || '',\n    clinicPhone: dbResults.clinic_phone || message.remoteJid,\n    paused: dbResults.paused || false,\n    botBypassAttempts: dbResults.bot_bypass_attempts || 0,\n    botBypassCooldownUntil: dbResults.bot_bypass_cooldown_until || null,\n    sdrName: $('Supabase - Lê Config').first().json.sdr_name || 'Vera'\n  }\n}];"
       },
       "id": "merge-context",
       "name": "Merge - Contexto da Conversa",
