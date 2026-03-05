@@ -383,7 +383,29 @@
       ],
       "retryOnFail": true,
       "maxTries": 2,
-      "waitBetweenTries": 3000
+      "waitBetweenTries": 3000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE gk_leads\nSET status        = 'failed',\n    error_message = 'not_on_whatsapp',\n    updated_at    = NOW()\nWHERE id = '{{ $(\"Lead Inserido?\").first().json.id }}';",
+        "options": {}
+      },
+      "id": "mark-lead-no-whatsapp",
+      "name": "Supabase - Marca Lead Sem WhatsApp",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        3940,
+        500
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
     },
     {
       "parameters": {
@@ -682,6 +704,13 @@
         [
           {
             "node": "Supabase - Cria Conversa",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase - Marca Lead Sem WhatsApp",
             "type": "main",
             "index": 0
           }
