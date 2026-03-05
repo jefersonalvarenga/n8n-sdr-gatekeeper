@@ -5,7 +5,7 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "sdr-gatekeeper-inbound",
-        "responseMode": "responseNode",
+        "responseMode": "onReceived",
         "options": {}
       },
       "id": "webhook-receiver",
@@ -1369,6 +1369,94 @@
         2330,
         400
       ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO sdr_debounce (remote_jid, last_wamid, updated_at)\nVALUES ('{{ $json.remoteJid }}', '{{ $json.wamid }}', NOW())\nON CONFLICT (remote_jid) DO UPDATE\n  SET last_wamid  = EXCLUDED.last_wamid,\n      updated_at  = NOW();",
+        "options": {}
+      },
+      "id": "register-wamid",
+      "name": "Supabase - Registra Wamid",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        750,
+        50
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 4,
+        "unit": "seconds"
+      },
+      "id": "wait-debounce",
+      "name": "Wait - Debounce 4s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        970,
+        50
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT last_wamid\nFROM sdr_debounce\nWHERE remote_jid = '{{ $(\"Parse Evolution Payload\").first().json.remoteJid }}';",
+        "options": {}
+      },
+      "id": "check-debounce",
+      "name": "Supabase - Verifica Debounce",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1190,
+        50
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-is-latest-wamid",
+              "leftValue": "={{ $json.last_wamid }}",
+              "rightValue": "={{ $(\"Parse Evolution Payload\").first().json.wamid }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-latest-wamid",
+      "name": "É Ainda o Último?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1410,
+        50
+      ]
     }
   ],
   "connections": {
@@ -1398,7 +1486,7 @@
       "main": [
         [
           {
-            "node": "É Reset?",
+            "node": "Supabase - Registra Wamid",
             "type": "main",
             "index": 0
           }
@@ -2002,6 +2090,51 @@
             "index": 0
           }
         ]
+      ]
+    },
+    "Supabase - Registra Wamid": {
+      "main": [
+        [
+          {
+            "node": "Wait - Debounce 4s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait - Debounce 4s": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Verifica Debounce",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Verifica Debounce": {
+      "main": [
+        [
+          {
+            "node": "É Ainda o Último?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É Ainda o Último?": {
+      "main": [
+        [
+          {
+            "node": "É Reset?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
       ]
     }
   },
