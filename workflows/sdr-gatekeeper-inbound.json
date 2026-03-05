@@ -153,23 +153,6 @@
     },
     {
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ status: 'ok', action: 'reset', remoteJid: $('Parse Evolution Payload').first().json.remoteJid }) }}",
-        "options": {
-          "responseCode": 200
-        }
-      },
-      "id": "webhook-response-reset",
-      "name": "Respond - Reset OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
-      "position": [
-        1740,
-        100
-      ]
-    },
-    {
-      "parameters": {
         "operation": "executeQuery",
         "query": "SELECT\n  COALESCE(c.id::text, '') AS id,\n  COALESCE(c.status, '') AS status,\n  COALESCE(c.message_count, 0) AS message_count,\n  COALESCE(c.fastapi_session_id, '') AS fastapi_session_id,\n  COALESCE(c.clinic_name, '') AS clinic_name,\n  COALESCE(c.remote_jid, '') AS clinic_phone,\n  COALESCE(c.paused, false) AS paused,\n  COALESCE(c.bot_bypass_attempts, 0) AS bot_bypass_attempts,\n  c.bot_bypass_cooldown_until\nFROM (SELECT 1) AS dummy\nLEFT JOIN gk_conversations c\n  ON (\n    (NOT {{ $json.isHomolog }} AND c.remote_jid = '{{ $json.remoteJid }}')\n    OR\n    ({{ $json.isHomolog }} = true)\n  )\nORDER BY c.updated_at DESC NULLS LAST\nLIMIT 1;",
         "options": {}
@@ -480,57 +463,6 @@
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 3000
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ status: 'ok', processed: true }) }}",
-        "options": {
-          "responseCode": 200
-        }
-      },
-      "id": "webhook-response-ok",
-      "name": "Respond OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
-      "position": [
-        4220,
-        440
-      ]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ status: 'ok', processed: false, reason: 'no_reply_needed' }) }}",
-        "options": {
-          "responseCode": 200
-        }
-      },
-      "id": "webhook-response-no-reply",
-      "name": "Respond - Sem Resposta",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
-      "position": [
-        3990,
-        660
-      ]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ status: 'ok', ignored: true, reason: $json.reason || 'filtered' }) }}",
-        "options": {
-          "responseCode": 200
-        }
-      },
-      "id": "webhook-response-ignored",
-      "name": "Respond - Ignorada",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
-      "position": [
-        1420,
-        500
-      ]
     },
     {
       "parameters": {
@@ -1509,24 +1441,12 @@
             "index": 0
           }
         ],
-        [
-          {
-            "node": "Respond - Ignorada",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     },
     "Supabase - Pausa Conversa": {
       "main": [
-        [
-          {
-            "node": "Respond - Ignorada",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     },
     "É Reset?": {
@@ -1571,13 +1491,7 @@
     },
     "Evolution - Confirma Reset": {
       "main": [
-        [
-          {
-            "node": "Respond - Reset OK",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     },
     "Supabase - Busca Conversa": {
@@ -1662,24 +1576,12 @@
     },
     "Supabase - Incrementa Bypass": {
       "main": [
-        [
-          {
-            "node": "Respond OK",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     },
     "Supabase - Marca Chatbot Bloqueado": {
       "main": [
-        [
-          {
-            "node": "Respond OK",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     },
     "Verifica Bloqueios": {
@@ -1713,13 +1615,7 @@
     },
     "É Pausa do Operador?": {
       "main": [
-        [
-          {
-            "node": "Respond - Ignorada",
-            "type": "main",
-            "index": 0
-          }
-        ],
+        [],
         [
           {
             "node": "Supabase - Marca Opted Out",
@@ -1731,13 +1627,7 @@
     },
     "Supabase - Marca Opted Out": {
       "main": [
-        [
-          {
-            "node": "Respond - Ignorada",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     },
     "Evolution - Reação ❤️": {
@@ -1861,24 +1751,12 @@
             "index": 0
           }
         ],
-        [
-          {
-            "node": "Respond - Sem Resposta",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     },
     "Evolution API - Envia Resposta": {
       "main": [
-        [
-          {
-            "node": "Respond OK",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     },
     "Evento - Decisor Capturado?": {
@@ -2076,13 +1954,7 @@
     },
     "Em Cooldown Bypass?": {
       "main": [
-        [
-          {
-            "node": "Respond OK",
-            "type": "main",
-            "index": 0
-          }
-        ],
+        [],
         [
           {
             "node": "Verifica Bloqueios",
