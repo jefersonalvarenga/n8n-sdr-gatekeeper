@@ -24,7 +24,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "-- Branch 1: Detecta Stalled (2h sem resposta)\n-- Transição: greeting_sent | gathering_decisor → stalled\nUPDATE gk_conversations\nSET status = 'stalled',\n    updated_at = NOW()\nWHERE status IN ('greeting_sent', 'gathering_decisor')\n  AND last_message_at < NOW() - INTERVAL '2 hours'\n  AND paused IS NOT TRUE\nRETURNING id, remote_jid, push_name, last_message_at;",
+        "query": "-- Branch 1: Detecta Stalled (2h sem resposta)\n-- Transição: greeting_sent | gathering_decisor → stalled\n-- Teto de 24h: conversas com > 24h pertencem ao Branch 2 (expired)\nUPDATE gk_conversations\nSET status = 'stalled',\n    updated_at = NOW()\nWHERE status IN ('greeting_sent', 'gathering_decisor')\n  AND last_message_at < NOW() - INTERVAL '2 hours'\n  AND last_message_at >= NOW() - INTERVAL '24 hours'\n  AND paused IS NOT TRUE\nRETURNING id, remote_jid, push_name, last_message_at;",
         "options": {}
       },
       "id": "detect-stalled",
