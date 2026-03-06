@@ -613,7 +613,8 @@
       "position": [
         3530,
         980
-      ]
+      ],
+      "disabled": true
     },
     {
       "parameters": {
@@ -635,7 +636,8 @@
           "name": "Postgres SDR Gatekeeper"
         }
       },
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "disabled": true
     },
     {
       "parameters": {
@@ -648,7 +650,8 @@
       "position": [
         3760,
         1200
-      ]
+      ],
+      "disabled": true
     },
     {
       "parameters": {
@@ -685,7 +688,8 @@
       "retryOnFail": true,
       "maxTries": 2,
       "waitBetweenTries": 3000,
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "disabled": true
     },
     {
       "parameters": {
@@ -698,7 +702,8 @@
       "position": [
         4220,
         1200
-      ]
+      ],
+      "disabled": true
     },
     {
       "parameters": {
@@ -719,84 +724,7 @@
           "id": "SUPABASE_CREDENTIALS_ID",
           "name": "Postgres SDR Gatekeeper"
         }
-      }
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://n8n.easyscale.co/webhook/sdr-gatekeeper-outbound",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"source\": \"inbound_cycle\",\n  \"trigger_reason\": {{ JSON.stringify($('Processa Resposta FastAPI').first().json.rawStage) }}\n}",
-        "options": {
-          "timeout": 10000
-        }
       },
-      "id": "trigger-outbound-cycle",
-      "name": "HTTP - Dispara Outbound",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        4280,
-        980
-      ],
-      "onError": "continueRegularOutput",
-      "disabled": true
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "-- Auto-reset: preserva histórico (modelo conversa eterna)\n-- Marca como encerrada; o próximo greeting faz UPSERT e seta greeting_sent\nUPDATE gk_conversations\nSET status             = 'auto_reset',\n    fastapi_session_id = NULL,\n    last_reset_at      = NOW(),\n    updated_at         = NOW()\nWHERE remote_jid = '{{ $('Prepara Contexto Unificado').first().json.remoteJid }}';",
-        "options": {}
-      },
-      "id": "auto-reset-conversation",
-      "name": "Supabase - Auto Reset",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        3760,
-        980
-      ],
-      "credentials": {
-        "postgres": {
-          "id": "SUPABASE_CREDENTIALS_ID",
-          "name": "Postgres SDR Gatekeeper"
-        }
-      },
-      "disabled": true
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE_NAME }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "={{ $env.EVOLUTION_API_KEY }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"number\": {{ JSON.stringify($('Prepara Contexto Unificado').first().json.remoteJid) }},\n  \"text\": \"reset\"\n}",
-        "options": {
-          "timeout": 15000
-        }
-      },
-      "id": "send-reset-to-sim",
-      "name": "Evolution - Envia Reset Sim",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        3875,
-        980
-      ],
       "disabled": true
     },
     {
@@ -837,7 +765,8 @@
       "position": [
         4680,
         1200
-      ]
+      ],
+      "disabled": true
     },
     {
       "parameters": {
@@ -874,7 +803,8 @@
       "position": [
         4910,
         1120
-      ]
+      ],
+      "disabled": true
     },
     {
       "parameters": {
@@ -922,21 +852,6 @@
         1100,
         400
       ]
-    },
-    {
-      "parameters": {
-        "amount": 5,
-        "unit": "seconds"
-      },
-      "id": "wait-5s-outbound",
-      "name": "Wait 5s - Antes do Outbound",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [
-        4050,
-        980
-      ],
-      "disabled": true
     },
     {
       "parameters": {
@@ -997,27 +912,6 @@
       "position": [
         2330,
         560
-      ],
-      "credentials": {
-        "postgres": {
-          "id": "SUPABASE_CREDENTIALS_ID",
-          "name": "Postgres SDR Gatekeeper"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "UPDATE gk_conversations\nSET paused = true,\n    paused_at = NOW(),\n    updated_at = NOW()\nWHERE remote_jid = '{{ $json.remoteJid }}'\n  AND status NOT IN ('decisor_captured', 'opted_out', 'closed');",
-        "options": {}
-      },
-      "id": "pausa-conversa",
-      "name": "Supabase - Pausa Conversa",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        1160,
-        600
       ],
       "credentials": {
         "postgres": {
@@ -1135,11 +1029,6 @@
             "index": 0
           }
         ]
-      ]
-    },
-    "Supabase - Pausa Conversa": {
-      "main": [
-        []
       ]
     },
     "É Reset?": {
@@ -1331,11 +1220,6 @@
             "node": "Evento - Decisor Capturado?",
             "type": "main",
             "index": 0
-          },
-          {
-            "node": "Conversa Encerrada?",
-            "type": "main",
-            "index": 0
           }
         ],
         []
@@ -1425,11 +1309,6 @@
         []
       ]
     },
-    "HTTP - Dispara Outbound": {
-      "main": [
-        []
-      ]
-    },
     "Supabase - Histórico Completo": {
       "main": [
         [
@@ -1490,28 +1369,6 @@
         ]
       ]
     },
-    "Supabase - Auto Reset": {
-      "main": [
-        [
-          {
-            "node": "Evolution - Envia Reset Sim",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Evolution - Envia Reset Sim": {
-      "main": [
-        [
-          {
-            "node": "Wait 5s - Antes do Outbound",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Auto-tune?": {
       "main": [
         [
@@ -1529,17 +1386,6 @@
         [
           {
             "node": "Supabase - Busca Conversa",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Wait 5s - Antes do Outbound": {
-      "main": [
-        [
-          {
-            "node": "HTTP - Dispara Outbound",
             "type": "main",
             "index": 0
           }
