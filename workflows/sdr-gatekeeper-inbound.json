@@ -334,7 +334,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE gk_conversations\nSET\n  status = '{{ $json.conversationStage }}',\n  decisor_name = CASE\n    WHEN {{ $json.extractedManagerName ? 'true' : 'false' }} = 'true'\n    THEN '{{ ($json.extractedManagerName).replace(/'/g, \"''\") }}'\n    ELSE decisor_name\n  END,\n  decisor_phone = CASE\n    WHEN {{ $json.extractedManagerContact ? 'true' : 'false' }} = 'true'\n    THEN '{{ ($json.extractedManagerContact).replace(/'/g, \"''\") }}'\n    ELSE decisor_phone\n  END,\n  decisor_email = CASE\n    WHEN {{ $json.extractedManagerEmail ? 'true' : 'false' }} = 'true'\n    THEN '{{ ($json.extractedManagerEmail).replace(/'/g, \"''\") }}'\n    ELSE decisor_email\n  END,\n  contact_type = CASE\n    WHEN {{ $json.contactType ? 'true' : 'false' }} = 'true'\n    THEN '{{ $json.contactType }}'\n    ELSE contact_type\n  END,\n  detected_persona = CASE\n    WHEN detected_persona IS NULL AND {{ $json.detectedPersona ? 'true' : 'false' }} = 'true'\n    THEN '{{ $json.detectedPersona }}'\n    ELSE detected_persona\n  END,\n  persona_confidence = CASE\n    WHEN persona_confidence IS NULL AND {{ $json.personaConfidence ? 'true' : 'false' }} = 'true'\n    THEN '{{ $json.personaConfidence }}'\n    ELSE persona_confidence\n  END\nWHERE id = '{{ $json.conversationId }}';\n\n-- Atualiza lead para failed quando conversa encerrada em negativa\nUPDATE gk_leads\nSET status = 'failed', updated_at = NOW()\nWHERE conversation_id = '{{ $json.conversationId }}'\n  AND '{{ $json.conversationStage }}' = 'denied'\n  AND status NOT IN ('decisor_captured', 'opted_out', 'closed', 'failed');",
+        "query": "UPDATE gk_conversations\nSET\n  status = '{{ $('Processa Resposta FastAPI').first().json.conversationStage }}',\n  decisor_name = CASE\n    WHEN {{ $('Processa Resposta FastAPI').first().json.extractedManagerName ? 'true' : 'false' }} = 'true'\n    THEN '{{ ($('Processa Resposta FastAPI').first().json.extractedManagerName).replace(/'/g, \"''\") }}'\n    ELSE decisor_name\n  END,\n  decisor_phone = CASE\n    WHEN {{ $('Processa Resposta FastAPI').first().json.extractedManagerContact ? 'true' : 'false' }} = 'true'\n    THEN '{{ ($('Processa Resposta FastAPI').first().json.extractedManagerContact).replace(/'/g, \"''\") }}'\n    ELSE decisor_phone\n  END,\n  decisor_email = CASE\n    WHEN {{ $('Processa Resposta FastAPI').first().json.extractedManagerEmail ? 'true' : 'false' }} = 'true'\n    THEN '{{ ($('Processa Resposta FastAPI').first().json.extractedManagerEmail).replace(/'/g, \"''\") }}'\n    ELSE decisor_email\n  END,\n  contact_type = CASE\n    WHEN {{ $('Processa Resposta FastAPI').first().json.contactType ? 'true' : 'false' }} = 'true'\n    THEN '{{ $('Processa Resposta FastAPI').first().json.contactType }}'\n    ELSE contact_type\n  END,\n  detected_persona = CASE\n    WHEN detected_persona IS NULL AND {{ $('Processa Resposta FastAPI').first().json.detectedPersona ? 'true' : 'false' }} = 'true'\n    THEN '{{ $('Processa Resposta FastAPI').first().json.detectedPersona }}'\n    ELSE detected_persona\n  END,\n  persona_confidence = CASE\n    WHEN persona_confidence IS NULL AND {{ $('Processa Resposta FastAPI').first().json.personaConfidence ? 'true' : 'false' }} = 'true'\n    THEN '{{ $('Processa Resposta FastAPI').first().json.personaConfidence }}'\n    ELSE persona_confidence\n  END\nWHERE id = '{{ $('Processa Resposta FastAPI').first().json.conversationId }}';\n\n-- Atualiza lead para failed quando conversa encerrada em negativa\nUPDATE gk_leads\nSET status = 'failed', updated_at = NOW()\nWHERE conversation_id = '{{ $('Processa Resposta FastAPI').first().json.conversationId }}'\n  AND '{{ $('Processa Resposta FastAPI').first().json.conversationStage }}' = 'denied'\n  AND status NOT IN ('decisor_captured', 'opted_out', 'closed', 'failed');",
         "options": {}
       },
       "id": "update-conversation-status",
@@ -355,7 +355,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO gk_messages (conversation_id, direction, content, message_type, stage)\nVALUES (\n  '{{ $json.conversationId }}',\n  'outbound',\n  '{{ ($json.responseMessage).replace(/'/g, \"''\") }}',\n  'text',\n  '{{ $json.rawStage }}'\n);",
+        "query": "INSERT INTO gk_messages (conversation_id, direction, content, message_type, stage)\nVALUES (\n  '{{ $('Processa Resposta FastAPI').first().json.conversationId }}',\n  'outbound',\n  '{{ ($('Processa Resposta FastAPI').first().json.responseMessage).replace(/'/g, \"''\") }}',\n  'text',\n  '{{ $('Processa Resposta FastAPI').first().json.rawStage }}'\n);",
         "options": {}
       },
       "id": "save-outbound-message",
@@ -384,7 +384,7 @@
           "conditions": [
             {
               "id": "condition-should-send",
-              "leftValue": "={{ $json.shouldSendMessage }}",
+              "leftValue": "={{ $('Processa Resposta FastAPI').first().json.shouldSendMessage }}",
               "rightValue": true,
               "operator": {
                 "type": "boolean",
