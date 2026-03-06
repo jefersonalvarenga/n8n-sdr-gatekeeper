@@ -808,7 +808,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Sinaliza isHomolog=true quando sdr_config.environment = 'homolog'.\n// Fonte de verdade: sdr_config, lido pelo nó upstream \"Supabase - Lê Config\".\n// Dados da mensagem: acessados por nome de nó (payload de \"É Reset?\" → NO).\n\nconst config = $input.first().json;         // saída de \"Supabase - Lê Config\"\nconst data   = $('É Reset?').first().json;  // payload da mensagem\n\nreturn [{ json: {\n  ...data,\n  isHomolog: (config.environment || '') === 'homolog'\n} }];"
+        "jsCode": "// Sinaliza isHomolog=true quando sdr_config.environment = 'homolog'.\n// Fonte de verdade: sdr_config, lido pelo nó upstream \"Supabase - Lê Config\".\n// Dados da mensagem: Parse Evolution Payload (disponível em qualquer branch).\n\nconst config = $input.first().json;                    // saída de \"Supabase - Lê Config\"\nconst data   = $('Parse Evolution Payload').first().json; // payload da mensagem\n\nreturn [{ json: {\n  ...data,\n  isHomolog: (config.environment || '') === 'homolog'\n} }];"
       },
       "id": "resolve-jid-homolog",
       "name": "Resolve JID (Homolog?)",
