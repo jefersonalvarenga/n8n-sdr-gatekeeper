@@ -192,7 +192,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH inserted AS (\n  INSERT INTO gk_messages (conversation_id, direction, content, message_type, wamid)\n  VALUES (\n    '{{ $json.conversationId }}',\n    'inbound',\n    '{{ ($json.messageContent).replace(/\\'/g, \"''\") }}',\n    '{{ $json.messageType }}',\n    '{{ $json.wamid }}'\n  )\n  RETURNING conversation_id\n)\nSELECT m.direction, m.content, m.stage, m.created_at\nFROM gk_messages m\nJOIN gk_conversations c ON c.id = m.conversation_id\nWHERE m.conversation_id = '{{ $json.conversationId }}'\n  AND m.created_at >= c.last_reset_at\nORDER BY m.created_at ASC\nLIMIT 50;",
+        "query": "WITH register_wamid AS (\n  INSERT INTO sdr_debounce (remote_jid, last_wamid, updated_at)\n  VALUES ('{{ $json.remoteJid }}', '{{ $json.wamid }}', NOW())\n  ON CONFLICT (remote_jid) DO UPDATE\n    SET last_wamid = EXCLUDED.last_wamid,\n        updated_at = NOW()\n),\ninserted AS (\n  INSERT INTO gk_messages (conversation_id, direction, content, message_type, wamid)\n  VALUES (\n    '{{ $json.conversationId }}',\n    'inbound',\n    '{{ ($json.messageContent).replace(/\\'/g, \"''\") }}',\n    '{{ $json.messageType }}',\n    '{{ $json.wamid }}'\n  )\n  RETURNING conversation_id\n)\nSELECT m.direction, m.content, m.stage, m.created_at\nFROM gk_messages m\nJOIN gk_conversations c ON c.id = m.conversation_id\nWHERE m.conversation_id = '{{ $json.conversationId }}'\n  AND m.created_at >= c.last_reset_at\nORDER BY m.created_at ASC\nLIMIT 50;",
         "options": {}
       },
       "id": "save-inbound-and-fetch-history",
