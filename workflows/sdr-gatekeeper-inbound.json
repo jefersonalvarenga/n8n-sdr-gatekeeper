@@ -1308,22 +1308,6 @@
         ]
       ]
     },
-    "Supabase - Salva Descoberta": {
-      "main": [
-        [
-          {
-            "node": "Auto-tune?",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Wait - Reset Cooldown",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Auto-tune?": {
       "main": [
         [
