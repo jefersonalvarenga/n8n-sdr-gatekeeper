@@ -1209,13 +1209,6 @@
             "type": "main",
             "index": 0
           }
-        ],
-        [
-          {
-            "node": "Supabase - Pausa Conversa",
-            "type": "main",
-            "index": 0
-          }
         ]
       ]
     },
