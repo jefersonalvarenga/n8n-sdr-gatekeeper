@@ -933,7 +933,7 @@
       },
       "id": "check-operator-takeover",
       "name": "É Operador?",
-      "type": "n8n-nodes-base.filter",
+      "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
         700,
