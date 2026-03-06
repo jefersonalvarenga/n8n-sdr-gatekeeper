@@ -357,6 +357,60 @@
     {
       "parameters": {
         "operation": "executeQuery",
+        "query": "SELECT last_wamid\nFROM sdr_debounce\nWHERE remote_jid = '{{ $(\"Parse Evolution Payload\").first().json.remoteJid }}';",
+        "options": {}
+      },
+      "id": "check-wamid-post-fastapi",
+      "name": "Supabase - Verifica Wamid Pós-FastAPI",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        3530,
+        540
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-wamid-still-valid",
+              "leftValue": "={{ $json.last_wamid }}",
+              "rightValue": "={{ $(\"Parse Evolution Payload\").first().json.wamid }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-wamid-still-valid",
+      "name": "Resposta Ainda Válida?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3750,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
         "query": "UPDATE gk_conversations\nSET\n  status = '{{ $json.conversationStage }}',\n  decisor_name = CASE\n    WHEN {{ $json.extractedManagerName ? 'true' : 'false' }} = 'true'\n    THEN '{{ ($json.extractedManagerName).replace(/'/g, \"''\") }}'\n    ELSE decisor_name\n  END,\n  decisor_phone = CASE\n    WHEN {{ $json.extractedManagerContact ? 'true' : 'false' }} = 'true'\n    THEN '{{ ($json.extractedManagerContact).replace(/'/g, \"''\") }}'\n    ELSE decisor_phone\n  END,\n  decisor_email = CASE\n    WHEN {{ $json.extractedManagerEmail ? 'true' : 'false' }} = 'true'\n    THEN '{{ ($json.extractedManagerEmail).replace(/'/g, \"''\") }}'\n    ELSE decisor_email\n  END,\n  contact_type = CASE\n    WHEN {{ $json.contactType ? 'true' : 'false' }} = 'true'\n    THEN '{{ $json.contactType }}'\n    ELSE contact_type\n  END,\n  detected_persona = CASE\n    WHEN detected_persona IS NULL AND {{ $json.detectedPersona ? 'true' : 'false' }} = 'true'\n    THEN '{{ $json.detectedPersona }}'\n    ELSE detected_persona\n  END,\n  persona_confidence = CASE\n    WHEN persona_confidence IS NULL AND {{ $json.personaConfidence ? 'true' : 'false' }} = 'true'\n    THEN '{{ $json.personaConfidence }}'\n    ELSE persona_confidence\n  END\nWHERE id = '{{ $json.conversationId }}';\n\n-- Atualiza lead para failed quando conversa encerrada em negativa\nUPDATE gk_leads\nSET status = 'failed', updated_at = NOW()\nWHERE conversation_id = '{{ $json.conversationId }}'\n  AND '{{ $json.conversationStage }}' = 'denied'\n  AND status NOT IN ('decisor_captured', 'opted_out', 'closed', 'failed');",
         "options": {}
       },
@@ -1770,6 +1824,28 @@
       "main": [
         [
           {
+            "node": "Supabase - Verifica Wamid Pós-FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Verifica Wamid Pós-FastAPI": {
+      "main": [
+        [
+          {
+            "node": "Resposta Ainda Válida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resposta Ainda Válida?": {
+      "main": [
+        [
+          {
             "node": "Supabase - Atualiza Status",
             "type": "main",
             "index": 0
@@ -1794,7 +1870,8 @@
             "type": "main",
             "index": 0
           }
-        ]
+        ],
+        []
       ]
     },
     "Deve Enviar?": {
