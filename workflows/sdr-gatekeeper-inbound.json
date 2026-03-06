@@ -788,21 +788,6 @@
     },
     {
       "parameters": {
-        "amount": 10,
-        "unit": "seconds"
-      },
-      "id": "wait-reset-cooldown",
-      "name": "Wait - Reset Cooldown",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [
-        3990,
-        980
-      ],
-      "disabled": true
-    },
-    {
-      "parameters": {
         "operation": "executeQuery",
         "query": "-- Auto-reset: preserva histórico (modelo conversa eterna)\n-- Marca como encerrada; o próximo greeting faz UPSERT e seta greeting_sent\nUPDATE gk_conversations\nSET status             = 'auto_reset',\n    fastapi_session_id = NULL,\n    last_reset_at      = NOW(),\n    updated_at         = NOW()\nWHERE remote_jid = '{{ $('Prepara Contexto Unificado').first().json.remoteJid }}';",
         "options": {}
@@ -1065,39 +1050,6 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "cond-operator",
-              "leftValue": "={{ $json.isOperatorTakeover }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "is-operator-takeover",
-      "name": "É Mensagem do Operador?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        930,
-        500
-      ]
-    },
-    {
-      "parameters": {
         "operation": "executeQuery",
         "query": "UPDATE gk_conversations\nSET paused = true,\n    paused_at = NOW(),\n    updated_at = NOW()\nWHERE remote_jid = '{{ $json.remoteJid }}'\n  AND status NOT IN ('decisor_captured', 'opted_out', 'closed');",
         "options": {}
@@ -1169,280 +1121,6 @@
           "name": "Postgres SDR Gatekeeper"
         }
       }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Detecta se a mensagem recebida é de um chatbot de menu\n// Patterns baseados em bots brasileiros comuns\nconst ctx = $input.first().json;\nconst text = (ctx.messageContent || '').normalize('NFC');\n\nconst BOT_PATTERNS = [\n  /bem[- ]?vindo/i,\n  /escolha uma das opções/i,\n  /escolha uma opção/i,\n  /por favor.*escolha/i,\n  /para.*facilitar.*atendimento/i,\n  /estou aqui para garantir/i,\n  /percebi que.*ficado ocupado/i,\n  /percebi que.*conseguiu continuar/i,\n  /quando quiser retomar/i,\n  /opções abaixo/i,\n  /1️⃣|2️⃣|3️⃣|4️⃣/,\n  /\\n\\s*[1-4][.)]\\s/,\n  /\\bdigite\\s+[0-9]/i,\n  /\\bopção\\s+[0-9]/i\n];\n\n// Menus tendem a ser mensagens longas com muitas quebras de linha\nconst lineBreaks = (text.match(/\\n/g) || []).length;\nconst isLongMenu = lineBreaks >= 4 && text.length > 150;\n\nconst matchesPattern = BOT_PATTERNS.some(p => p.test(text));\nconst isBot = matchesPattern || isLongMenu;\n\nreturn [{ json: { ...ctx, isBot } }];"
-      },
-      "id": "detect-bot",
-      "name": "Detecta Bot",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1870,
-        700
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "cond-is-bot",
-              "leftValue": "={{ $json.isBot }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "is-bot-response",
-      "name": "É Bot de Menu?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        2100,
-        700
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "cond-bypass-exhausted",
-              "leftValue": "={{ $json.botBypassAttempts }}",
-              "rightValue": 4,
-              "operator": {
-                "type": "number",
-                "operation": "gte"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "check-bypass-exhausted",
-      "name": "Bypass Esgotado?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        2330,
-        700
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE_NAME }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "={{ $env.EVOLUTION_API_KEY }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"number\": {{ JSON.stringify($json.phoneNumber) }},\n  \"text\": {{ JSON.stringify((['falar com atendente','humano','gestor','0'])[$json.botBypassAttempts] || '0') }}\n}",
-        "options": {
-          "timeout": 10000
-        }
-      },
-      "id": "send-bot-bypass",
-      "name": "Evolution - Bypass Bot",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2560,
-        600
-      ]
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "UPDATE gk_conversations\nSET bot_bypass_attempts = bot_bypass_attempts + 1,\n    bot_bypass_cooldown_until = NOW() + INTERVAL '30 seconds',\n    updated_at = NOW()\nWHERE id = '{{ $('É Bot de Menu?').first().json.conversationId }}';",
-        "options": {}
-      },
-      "id": "increment-bypass-db",
-      "name": "Supabase - Incrementa Bypass",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        2790,
-        600
-      ],
-      "credentials": {
-        "postgres": {
-          "id": "SUPABASE_CREDENTIALS_ID",
-          "name": "Postgres SDR Gatekeeper"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "UPDATE gk_conversations\nSET status = 'stalled',\n    updated_at = NOW()\nWHERE id = '{{ $json.conversationId }}';\n\nUPDATE gk_leads\nSET status = 'failed',\n    error_message = 'chatbot_blocked',\n    updated_at = NOW()\nWHERE conversation_id = '{{ $json.conversationId }}';",
-        "options": {}
-      },
-      "id": "mark-chatbot-blocked",
-      "name": "Supabase - Marca Chatbot Bloqueado",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        2560,
-        800
-      ],
-      "credentials": {
-        "postgres": {
-          "id": "SUPABASE_CREDENTIALS_ID",
-          "name": "Postgres SDR Gatekeeper"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "cond-in-cooldown",
-              "leftValue": "={{ $json.botBypassCooldownUntil !== null && $json.botBypassCooldownUntil !== '' && new Date() < new Date($json.botBypassCooldownUntil) }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "check-bypass-cooldown",
-      "name": "Em Cooldown Bypass?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        2330,
-        400
-      ]
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO sdr_debounce (remote_jid, last_wamid, updated_at)\nVALUES ('{{ $json.remoteJid }}', '{{ $json.wamid }}', NOW())\nON CONFLICT (remote_jid) DO UPDATE\n  SET last_wamid  = EXCLUDED.last_wamid,\n      updated_at  = NOW();",
-        "options": {}
-      },
-      "id": "register-wamid",
-      "name": "Supabase - Registra Wamid",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        750,
-        50
-      ],
-      "credentials": {
-        "postgres": {
-          "id": "SUPABASE_CREDENTIALS_ID",
-          "name": "Postgres SDR Gatekeeper"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "amount": 4,
-        "unit": "seconds"
-      },
-      "id": "wait-debounce",
-      "name": "Wait - Debounce 4s",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [
-        970,
-        50
-      ]
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT last_wamid\nFROM sdr_debounce\nWHERE remote_jid = '{{ $(\"Parse Evolution Payload\").first().json.remoteJid }}';",
-        "options": {}
-      },
-      "id": "check-debounce",
-      "name": "Supabase - Verifica Debounce",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        1190,
-        50
-      ],
-      "credentials": {
-        "postgres": {
-          "id": "SUPABASE_CREDENTIALS_ID",
-          "name": "Postgres SDR Gatekeeper"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "cond-is-latest-wamid",
-              "leftValue": "={{ $json.last_wamid }}",
-              "rightValue": "={{ $(\"Parse Evolution Payload\").first().json.wamid }}",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "is-latest-wamid",
-      "name": "É Ainda o Último?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        1410,
-        50
-      ]
     },
     {
       "parameters": {
@@ -1527,30 +1205,18 @@
       "main": [
         [
           {
-            "node": "Supabase - Registra Wamid",
+            "node": "É Reset?",
             "type": "main",
             "index": 0
           }
         ],
-        [
-          {
-            "node": "É Mensagem do Operador?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "É Mensagem do Operador?": {
-      "main": [
         [
           {
             "node": "Supabase - Pausa Conversa",
             "type": "main",
             "index": 0
           }
-        ],
-        []
+        ]
       ]
     },
     "Supabase - Pausa Conversa": {
@@ -1618,79 +1284,11 @@
       "main": [
         [
           {
-            "node": "Detecta Bot",
+            "node": "Verifica Bloqueios",
             "type": "main",
             "index": 0
           }
         ]
-      ]
-    },
-    "Detecta Bot": {
-      "main": [
-        [
-          {
-            "node": "É Bot de Menu?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "É Bot de Menu?": {
-      "main": [
-        [
-          {
-            "node": "Bypass Esgotado?",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Em Cooldown Bypass?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Bypass Esgotado?": {
-      "main": [
-        [
-          {
-            "node": "Supabase - Marca Chatbot Bloqueado",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Evolution - Bypass Bot",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Evolution - Bypass Bot": {
-      "main": [
-        [
-          {
-            "node": "Supabase - Incrementa Bypass",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Supabase - Incrementa Bypass": {
-      "main": [
-        []
-      ]
-    },
-    "Supabase - Marca Chatbot Bloqueado": {
-      "main": [
-        []
       ]
     },
     "Verifica Bloqueios": {
@@ -2023,17 +1621,6 @@
         ]
       ]
     },
-    "Wait - Reset Cooldown": {
-      "main": [
-        [
-          {
-            "node": "Supabase - Auto Reset",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Supabase - Auto Reset": {
       "main": [
         [
@@ -2088,69 +1675,6 @@
             "index": 0
           }
         ]
-      ]
-    },
-    "Em Cooldown Bypass?": {
-      "main": [
-        [
-          {
-            "node": "Verifica Bloqueios",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Verifica Bloqueios",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Supabase - Registra Wamid": {
-      "main": [
-        [
-          {
-            "node": "Wait - Debounce 4s",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Wait - Debounce 4s": {
-      "main": [
-        [
-          {
-            "node": "Supabase - Verifica Debounce",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Supabase - Verifica Debounce": {
-      "main": [
-        [
-          {
-            "node": "É Ainda o Último?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "É Ainda o Último?": {
-      "main": [
-        [
-          {
-            "node": "É Reset?",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        []
       ]
     },
     "É Operador?": {
