@@ -983,7 +983,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Verifica se a conversa deve ser bloqueada antes de chamar a IA\n// Caso 0: paused → operador assumiu o chat, silencia a IA\n// Caso 1: opted_out → ignorar completamente\n// Caso 2: pending_optout + palavra-chave de encerramento → marcar opted_out\nconst data = $input.first().json;\n\n// PRIORIDADE MÁXIMA: operador pausou a conversa\nif (data.paused === true) {\n  return [{ json: { ...data, _shouldBlock: true, _blockType: 'paused' } }];\n}\n\nif (data.currentStatus === 'opted_out') {\n  return [{ json: { ...data, _shouldBlock: true, _blockType: 'opted_out' } }];\n}\n\nif (data.currentStatus === 'pending_optout') {\n  const msg = (data.messageContent || '').toLowerCase().trim();\n  const optOutWords = ['sim', 'não quero', 'nao quero', 'encerrar', 'encerra', 'para', 'pare', 'stop', 'não', 'nao'];\n  const confirmed = optOutWords.some(w => msg === w || msg.startsWith(w + ' ') || msg.endsWith(' ' + w));\n  if (confirmed) {\n    return [{ json: { ...data, _shouldBlock: true, _blockType: 'confirm_optout' } }];\n  }\n}\n\nreturn [{ json: { ...data, _shouldBlock: false, _blockType: null } }];"
+        "jsCode": "// Verifica se a conversa deve ser bloqueada antes de chamar a IA\n// Caso 0: paused → operador assumiu o chat, silencia a IA\n// Caso 1: opted_out → ignorar completamente\n// Caso 2: pending_optout + palavra-chave de encerramento → marcar opted_out\nconst data = $input.first().json;\n\nif (data.currentStatus === 'opted_out') {\n  return [{ json: { ...data, _shouldBlock: true, _blockType: 'opted_out' } }];\n}\n\nif (data.currentStatus === 'pending_optout') {\n  const msg = (data.messageContent || '').toLowerCase().trim();\n  const optOutWords = ['sim', 'não quero', 'nao quero', 'encerrar', 'encerra', 'para', 'pare', 'stop', 'não', 'nao'];\n  const confirmed = optOutWords.some(w => msg === w || msg.startsWith(w + ' ') || msg.endsWith(' ' + w));\n  if (confirmed) {\n    return [{ json: { ...data, _shouldBlock: true, _blockType: 'confirm_optout' } }];\n  }\n}\n\nreturn [{ json: { ...data, _shouldBlock: false, _blockType: null } }];"
       },
       "id": "verifica-bloqueios",
       "name": "Verifica Bloqueios",
@@ -1068,38 +1068,6 @@
           "name": "Postgres SDR Gatekeeper"
         }
       }
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "cond-paused",
-              "leftValue": "={{ $json._blockType }}",
-              "rightValue": "paused",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "is-pausa-operador",
-      "name": "É Pausa do Operador?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        2330,
-        400
-      ]
     },
     {
       "parameters": {
@@ -1299,7 +1267,7 @@
       "main": [
         [
           {
-            "node": "É Pausa do Operador?",
+            "node": "Supabase - Marca Opted Out",
             "type": "main",
             "index": 0
           }
@@ -1307,18 +1275,6 @@
         [
           {
             "node": "Supabase - Atualiza Conversa",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "É Pausa do Operador?": {
-      "main": [
-        [],
-        [
-          {
-            "node": "Supabase - Marca Opted Out",
             "type": "main",
             "index": 0
           }
