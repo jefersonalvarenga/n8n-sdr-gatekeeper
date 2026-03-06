@@ -425,7 +425,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"number\": {{ JSON.stringify($json.remoteJid) }},\n  \"text\": {{ JSON.stringify($json.responseMessage) }}\n}",
+        "jsonBody": "={\n  \"number\": {{ JSON.stringify($('Processa Resposta FastAPI').first().json.remoteJid) }},\n  \"text\": {{ JSON.stringify($('Processa Resposta FastAPI').first().json.responseMessage) }}\n}",
         "options": {
           "timeout": 15000
         }
@@ -458,7 +458,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO gk_events (conversation_id, event_type, event_data)\nVALUES (\n  '{{ $json.conversationId }}',\n  '{{ $json.eventType }}',\n  '{{ $json.eventData }}'::jsonb\n);",
+        "query": "INSERT INTO gk_events (conversation_id, event_type, event_data)\nVALUES (\n  '{{ $('Processa Resposta FastAPI').first().json.conversationId }}',\n  '{{ $('Processa Resposta FastAPI').first().json.eventType }}',\n  '{{ $('Processa Resposta FastAPI').first().json.eventData }}'::jsonb\n);",
         "options": {}
       },
       "id": "save-event",
@@ -501,7 +501,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO clinic_decisors (\n  place_id,\n  gk_conversation_id,\n  clinic_name,\n  clinic_phone,\n  manager_name,\n  manager_phone,\n  manager_email,\n  lead_score,\n  ads_group,\n  status\n) VALUES (\n  '{{ $json.place_id || '' }}',\n  '{{ $('Evento - Decisor Capturado?').first().json.conversationId }}',\n  '{{ ($('Prepara Contexto Unificado').first().json.clinicName || '').replace(/'/g, \"''\") }}',\n  '{{ ($('Prepara Contexto Unificado').first().json.clinicPhone || '').replace(/'/g, \"''\") }}',\n  '{{ ($('Processa Resposta FastAPI').first().json.extractedManagerName || '').replace(/'/g, \"''\") }}',\n  '{{ ($('Processa Resposta FastAPI').first().json.extractedManagerContact || '').replace(/'/g, \"''\") }}',\n  '{{ ($('Processa Resposta FastAPI').first().json.extractedManagerEmail || '').replace(/'/g, \"''\") }}',\n  {{ $json.lead_score || 0 }},\n  '{{ $json.ads_group || '' }}',\n  'captured'\n)\nON CONFLICT (manager_phone) WHERE manager_phone IS NOT NULL DO NOTHING;",
+        "query": "INSERT INTO clinic_decisors (\n  place_id,\n  gk_conversation_id,\n  clinic_name,\n  clinic_phone,\n  manager_name,\n  manager_phone,\n  manager_email,\n  lead_score,\n  ads_group,\n  status\n) VALUES (\n  '{{ $('Processa Resposta FastAPI').first().json.place_id || '' }}',\n  '{{ $('Evento - Decisor Capturado?').first().json.conversationId }}',\n  '{{ ($('Prepara Contexto Unificado').first().json.clinicName || '').replace(/'/g, \"''\") }}',\n  '{{ ($('Prepara Contexto Unificado').first().json.clinicPhone || '').replace(/'/g, \"''\") }}',\n  '{{ ($('Processa Resposta FastAPI').first().json.extractedManagerName || '').replace(/'/g, \"''\") }}',\n  '{{ ($('Processa Resposta FastAPI').first().json.extractedManagerContact || '').replace(/'/g, \"''\") }}',\n  '{{ ($('Processa Resposta FastAPI').first().json.extractedManagerEmail || '').replace(/'/g, \"''\") }}',\n  {{ $('Processa Resposta FastAPI').first().json.lead_score || 0 }},\n  '{{ $('Processa Resposta FastAPI').first().json.ads_group || '' }}',\n  'captured'\n)\nON CONFLICT (manager_phone) WHERE manager_phone IS NOT NULL DO NOTHING;",
         "options": {}
       },
       "id": "insert-clinic-decisors",
