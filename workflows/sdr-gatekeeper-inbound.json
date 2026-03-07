@@ -1014,22 +1014,7 @@
       "main": [
         [
           {
-            "node": "Supabase - Atualiza Status",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Supabase - Salva Msg Outbound",
-            "type": "main",
-            "index": 0
-          },
-          {
             "node": "Deve Enviar?",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Evento - Decisor Capturado?",
             "type": "main",
             "index": 0
           }
@@ -1042,6 +1027,21 @@
         [
           {
             "node": "Evolution API - Envia Resposta",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase - Atualiza Status",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase - Salva Msg Outbound",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Evento - Decisor Capturado?",
             "type": "main",
             "index": 0
           }
