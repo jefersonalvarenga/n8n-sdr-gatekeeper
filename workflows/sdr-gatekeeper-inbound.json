@@ -1201,14 +1201,14 @@
       "main": [
         [
           {
-            "node": "É Reset?",
+            "node": "Resolve JID (Homolog?)",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Supabase - Lê Config",
+            "node": "É Reset?",
             "type": "main",
             "index": 0
           }
