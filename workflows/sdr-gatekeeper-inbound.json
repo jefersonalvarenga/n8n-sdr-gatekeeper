@@ -66,7 +66,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "-- Apaga eventos, mensagens e conversas do remote_jid\nDELETE FROM gk_events WHERE conversation_id IN (\n  SELECT id FROM gk_conversations WHERE remote_jid = '{{ $json.remoteJid }}'\n);\nDELETE FROM gk_messages WHERE conversation_id IN (\n  SELECT id FROM gk_conversations WHERE remote_jid = '{{ $json.remoteJid }}'\n);\nDELETE FROM gk_conversations WHERE remote_jid = '{{ $json.remoteJid }}';",
+        "query": "-- Reset completo da conversa para reprocessamento\nDELETE FROM gk_events WHERE conversation_id IN (\n  SELECT id FROM gk_conversations WHERE remote_jid = '{{ $json.remoteJid }}'\n);\nDELETE FROM gk_messages WHERE conversation_id IN (\n  SELECT id FROM gk_conversations WHERE remote_jid = '{{ $json.remoteJid }}'\n);\nDELETE FROM gk_logs WHERE remote_jid = '{{ $json.remoteJid }}';\nDELETE FROM sdr_debounce WHERE remote_jid = '{{ $json.remoteJid }}';\nUPDATE gk_leads\n  SET status = 'created', updated_at = NOW()\n  WHERE conversation_id IN (\n    SELECT id FROM gk_conversations WHERE remote_jid = '{{ $json.remoteJid }}'\n  )\n  AND status NOT IN ('opted_out', 'closed');\nDELETE FROM gk_conversations WHERE remote_jid = '{{ $json.remoteJid }}';",
         "options": {}
       },
       "id": "reset-conversation",
