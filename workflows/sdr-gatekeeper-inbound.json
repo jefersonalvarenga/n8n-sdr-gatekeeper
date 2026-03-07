@@ -177,7 +177,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ============================================\n// Monta payload para o FastAPI conforme contrato real\n// ============================================\n\nconst context = $('Merge - Contexto da Conversa').first().json;\nconst historyRows = $('Supabase - Salva Inbound e Busca Histórico').all();\n\n// Monta conversation_history — o agente calcula internamente o que precisar\nconst conversationHistory = historyRows\n  .filter(item => item.json && item.json.content)\n  .map(item => ({\n    role: item.json.direction === 'inbound' ? 'human' : 'agent',\n    content: item.json.content,\n    ...(item.json.stage ? { stage: item.json.stage } : {})\n  }));\n\nreturn [{\n  json: {\n    clinicName: context.clinicName || '',\n    clinicPhone: context.clinicPhone || context.phoneNumber,\n    conversationHistory: conversationHistory,\n    latestMessage: context.messageContent,\n    detectedPersona: context.detectedPersona || null,\n    personaConfidence: context.personaConfidence || null,\n    // Dados preservados para os próximos nodes\n    conversationId: context.conversationId,\n    remoteJid: context.remoteJid,\n    instanceName: context.instanceName,\n    pushName: context.pushName,\n    phoneNumber: context.phoneNumber,\n    sdrName: context.sdrName || 'Vera',\n    isHomolog: context.isHomolog || false\n  }\n}];"
+        "jsCode": "// ============================================\n// Monta payload para o FastAPI conforme contrato real\n// ============================================\n\nconst context = $('Merge - Contexto da Conversa').first().json;\nconst historyRows = $('Supabase - Salva Inbound e Busca Histórico').all();\n\n// Monta conversation_history — o agente calcula internamente o que precisar\nconst conversationHistory = historyRows\n  .filter(item => item.json && item.json.content)\n  .map(item => ({\n    role: item.json.direction === 'inbound' ? 'human' : 'agent',\n    content: item.json.content,\n    ...(item.json.stage ? { stage: item.json.stage } : {})\n  }));\n\nreturn [{\n  json: {\n    clinicName: context.clinicName || '',\n    clinicPhone: context.clinicPhone || context.phoneNumber,\n    conversationHistory: conversationHistory,\n    latestMessage: context.messageContent,\n    detectedPersona: context.detectedPersona || null,\n    personaConfidence: context.personaConfidence || null,\n    // Dados preservados para os próximos nodes\n    conversationId: context.conversationId,\n    remoteJid: context.remoteJid,\n    instanceName: context.instanceName,\n    pushName: context.pushName,\n    phoneNumber: context.phoneNumber,\n    sdrName: context.sdrName || 'Vera',\n    isHomolog: context.isHomolog || false,\n    currentStatus: context.currentStatus || null\n  }\n}];"
       },
       "id": "prepare-fastapi-payload",
       "name": "Prepara Payload FastAPI",
@@ -207,7 +207,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"clinic_name\": {{ JSON.stringify($json.clinicName) }},\n  \"clinic_phone\": {{ JSON.stringify($json.clinicPhone) }},\n  \"sdr_name\": {{ JSON.stringify($json.sdrName || 'Vera') }},\n  \"conversation_history\": {{ JSON.stringify($json.conversationHistory) }},\n  \"latest_message\": {{ JSON.stringify($json.latestMessage) }},\n  \"current_hour\": {{ new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })).getHours() }},\n  \"current_weekday\": {{ (new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })).getDay() + 6) % 7 }},\n  \"detected_persona\": {{ JSON.stringify($json.detectedPersona || null) }},\n  \"persona_confidence\": {{ JSON.stringify($json.personaConfidence || null) }},\n  \"is_homolog\": {{ $json.isHomolog || false }}\n}",
+        "jsonBody": "={\n  \"clinic_name\": {{ JSON.stringify($json.clinicName) }},\n  \"clinic_phone\": {{ JSON.stringify($json.clinicPhone) }},\n  \"sdr_name\": {{ JSON.stringify($json.sdrName || 'Vera') }},\n  \"conversation_history\": {{ JSON.stringify($json.conversationHistory) }},\n  \"latest_message\": {{ JSON.stringify($json.latestMessage) }},\n  \"current_hour\": {{ new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })).getHours() }},\n  \"current_weekday\": {{ (new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })).getDay() + 6) % 7 }},\n  \"detected_persona\": {{ JSON.stringify($json.detectedPersona || null) }},\n  \"persona_confidence\": {{ JSON.stringify($json.personaConfidence || null) }},\n  \"is_homolog\": {{ $json.isHomolog || false }},\n  \"current_status\": {{ JSON.stringify($json.currentStatus || null) }}\n}",
         "options": {
           "timeout": 30000,
           "response": {
@@ -231,7 +231,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ============================================\n// Processa resposta do FastAPI - Contrato Real\n// Response: {\n//   response_message: string,\n//   should_send_message: boolean,\n//   conversation_stage: string,  ← vocabulário interno do agente\n//   extracted_manager_contact: string|null,\n//   extracted_manager_email: string|null,\n//   extracted_manager_name: string|null,\n//   detected_persona: string|null,\n//   persona_confidence: string|null\n// }\n//\n// Mapeamento de stages (FastAPI interno → pipeline SDR):\n//   opening / requesting / handling_objection → gathering_decisor\n//   success                                   → decisor_captured\n//   failed                                    → denied\n//\n// CHANNEL_SUCCESS: success sem phone nem email\n//   → gestor monitora este WhatsApp → usa clinicPhone como contato\n// ============================================\n\nconst response = $input.first().json;\nconst payload = $('Prepara Payload FastAPI').first().json;\n\nconst body = response.body || response;\n\nconst responseMessage = body.response_message || '';\nconst shouldSendMessage = body.should_send_message === true;\nlet extractedManagerContact = body.extracted_manager_contact || null;\nconst extractedManagerEmail = body.extracted_manager_email || null;\nconst extractedManagerName = body.extracted_manager_name || null;\nconst detectedPersona = body.detected_persona || payload.detectedPersona || null;\nconst personaConfidence = body.persona_confidence || payload.personaConfidence || null;\n\n// Traduz stage interno do GatekeeperAgent para stage do pipeline SDR\nconst stageMap = {\n  'opening': 'gathering_decisor',\n  'requesting': 'gathering_decisor',\n  'handling_objection': 'gathering_decisor',\n  'handling_menu_bot': 'gathering_decisor',\n  'success': 'decisor_captured',\n  'failed': 'denied'\n};\nconst rawStage = body.conversation_stage || 'requesting';\nconst conversationStage = stageMap[rawStage] || 'gathering_decisor';\n\n// CHANNEL_SUCCESS: success sem phone nem email\n// O gestor monitora este WhatsApp — usa clinicPhone como contato do canal\n// Remove @s.whatsapp.net para salvar número limpo em clinic_decisors\nconst isChannelSuccess = rawStage === 'success' && !extractedManagerContact && !extractedManagerEmail;\nif (isChannelSuccess) {\n  extractedManagerContact = (payload.clinicPhone || '').replace('@s.whatsapp.net', '');\n}\nconst contactType = isChannelSuccess ? 'channel'\n  : extractedManagerContact ? 'phone'\n  : extractedManagerEmail   ? 'email'\n  : null;\n\nreturn [{\n  json: {\n    conversationId: payload.conversationId,\n    rawStage,\n    remoteJid: payload.remoteJid,\n    instanceName: payload.instanceName,\n    responseMessage,\n    shouldSendMessage,\n    conversationStage,\n    extractedManagerContact,\n    extractedManagerEmail,\n    extractedManagerName,\n    contactType,\n    detectedPersona,\n    personaConfidence\n  }\n}];"
+        "jsCode": "// ============================================\n// Processa resposta do FastAPI - Contrato Real\n// Response: {\n//   response_message: string,\n//   should_send_message: boolean,\n//   conversation_stage: string,  ← vocabulário interno do agente\n//   extracted_manager_contact: string|null,\n//   extracted_manager_email: string|null,\n//   extracted_manager_name: string|null,\n//   detected_persona: string|null,\n//   persona_confidence: string|null\n// }\n//\n// Mapeamento de stages (FastAPI interno → pipeline SDR):\n//   opening / requesting / handling_objection → gathering_decisor\n//   success                                   → decisor_captured\n//   failed                                    → denied\n//\n// CHANNEL_SUCCESS: success sem phone nem email\n//   → gestor monitora este WhatsApp → usa clinicPhone como contato\n// ============================================\n\nconst response = $input.first().json;\nconst payload = $('Prepara Payload FastAPI').first().json;\n\nconst body = response.body || response;\n\nconst responseMessage = body.response_message || '';\nconst shouldSendMessage = body.should_send_message === true;\nlet extractedManagerContact = body.extracted_manager_contact || null;\nconst extractedManagerEmail = body.extracted_manager_email || null;\nconst extractedManagerName = body.extracted_manager_name || null;\nconst detectedPersona = body.detected_persona || payload.detectedPersona || null;\nconst personaConfidence = body.persona_confidence || payload.personaConfidence || null;\n\n// Traduz stage interno do GatekeeperAgent para stage do pipeline SDR\nconst stageMap = {\n  'opening': 'gathering_decisor',\n  'requesting': 'gathering_decisor',\n  'handling_objection': 'gathering_decisor',\n  'handling_menu_bot': 'gathering_decisor',\n  'opted_out': 'opted_out',\n  'success': 'decisor_captured',\n  'failed': 'denied'\n};\nconst rawStage = body.conversation_stage || 'requesting';\nconst conversationStage = stageMap[rawStage] || 'gathering_decisor';\n\n// CHANNEL_SUCCESS: success sem phone nem email\n// O gestor monitora este WhatsApp — usa clinicPhone como contato do canal\n// Remove @s.whatsapp.net para salvar número limpo em clinic_decisors\nconst isChannelSuccess = rawStage === 'success' && !extractedManagerContact && !extractedManagerEmail;\nif (isChannelSuccess) {\n  extractedManagerContact = (payload.clinicPhone || '').replace('@s.whatsapp.net', '');\n}\nconst contactType = isChannelSuccess ? 'channel'\n  : extractedManagerContact ? 'phone'\n  : extractedManagerEmail   ? 'email'\n  : null;\n\nreturn [{\n  json: {\n    conversationId: payload.conversationId,\n    rawStage,\n    remoteJid: payload.remoteJid,\n    instanceName: payload.instanceName,\n    responseMessage,\n    shouldSendMessage,\n    conversationStage,\n    extractedManagerContact,\n    extractedManagerEmail,\n    extractedManagerName,\n    contactType,\n    detectedPersona,\n    personaConfidence\n  }\n}];"
       },
       "id": "process-fastapi-response",
       "name": "Processa Resposta FastAPI",
@@ -764,52 +764,6 @@
     },
     {
       "parameters": {
-        "jsCode": "// Verifica se a conversa deve ser bloqueada antes de chamar a IA\n// Caso 0: paused → operador assumiu o chat, silencia a IA\n// Caso 1: opted_out → ignorar completamente\n// Caso 2: pending_optout + palavra-chave de encerramento → marcar opted_out\nconst data = $input.first().json;\n\nif (data.currentStatus === 'opted_out') {\n  return [{ json: { ...data, _shouldBlock: true, _blockType: 'opted_out' } }];\n}\n\nif (data.currentStatus === 'pending_optout') {\n  const msg = (data.messageContent || '').toLowerCase().trim();\n  const optOutWords = ['sim', 'não quero', 'nao quero', 'encerrar', 'encerra', 'para', 'pare', 'stop', 'não', 'nao'];\n  const confirmed = optOutWords.some(w => msg === w || msg.startsWith(w + ' ') || msg.endsWith(' ' + w));\n  if (confirmed) {\n    return [{ json: { ...data, _shouldBlock: true, _blockType: 'confirm_optout' } }];\n  }\n}\n\nreturn [{ json: { ...data, _shouldBlock: false, _blockType: null } }];"
-      },
-      "id": "verifica-bloqueios",
-      "name": "Verifica Bloqueios",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1870,
-        400
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "cond-should-block",
-              "leftValue": "={{ $json._shouldBlock }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "deve-bloquear",
-      "name": "Deve Bloquear?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        2100,
-        400
-      ]
-    },
-    {
-      "parameters": {
         "operation": "executeQuery",
         "query": "UPDATE gk_conversations\nSET status = 'opted_out', updated_at = NOW()\nWHERE id = '{{ $json.conversationId }}';\n\nUPDATE gk_leads\nSET status = 'opted_out', updated_at = NOW()\nWHERE conversation_id = '{{ $json.conversationId }}';\n\nINSERT INTO gk_events (conversation_id, event_type, event_data)\nVALUES (\n  '{{ $json.conversationId }}',\n  'opted_out',\n  '{\"message\": \"{{ ($json.messageContent).replace(/'/g, \"''\") }}\", \"remote_jid\": \"{{ $json.remoteJid }}\"}'::jsonb\n);",
         "options": {}
@@ -989,35 +943,6 @@
       "main": [
         [
           {
-            "node": "Verifica Bloqueios",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Verifica Bloqueios": {
-      "main": [
-        [
-          {
-            "node": "Deve Bloquear?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Deve Bloquear?": {
-      "main": [
-        [
-          {
-            "node": "Supabase - Marca Opted Out",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
             "node": "Supabase - Salva Inbound e Busca Histórico",
             "type": "main",
             "index": 0
@@ -1121,7 +1046,13 @@
             "index": 0
           }
         ],
-        []
+        [
+          {
+            "node": "Supabase - Marca Opted Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Evolution API - Envia Resposta": {
