@@ -1148,14 +1148,14 @@
       "main": [
         [
           {
-            "node": "Resolve JID (Homolog?)",
+            "node": "É Reset?",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "É Reset?",
+            "node": "Resolve JID (Homolog?)",
             "type": "main",
             "index": 0
           }
