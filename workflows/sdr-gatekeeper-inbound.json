@@ -373,7 +373,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Roteamento Homolog\n// Única responsabilidade: substituir o destino do envio WhatsApp quando em modo homolog.\n// O banco já foi gravado com os dados reais — só o destino da mensagem muda aqui.\n// Fonte de verdade: sdr_config.environment (lido pelo nó \"Supabase - Lê Config\" no início do fluxo).\n\nconst data = $('Processa Resposta FastAPI').first().json;\nconst config = $('Supabase - Lê Config').first().json;\n\n// send_jid: destino real do envio WhatsApp\n// remoteJid (gravado no banco) permanece com o JID real da clínica\nconst send_jid = config.environment === 'homolog'\n  ? (config.homolog_phone || '').replace(/\\D/g, '') + '@s.whatsapp.net'\n  : data.remoteJid;\n\nreturn [{ json: { ...data, send_jid } }];"
+        "jsCode": "// Roteamento Homolog\n// Única responsabilidade: substituir o destino do envio WhatsApp quando em modo homolog.\n// O banco já foi gravado com os dados reais — só o destino da mensagem muda aqui.\n// isHomolog vem do Prepara Payload FastAPI (propagado desde gk_conversations.is_homolog).\n// homolog_phone vem de $env.HOMOLOG_PHONE (configurado no n8n).\n\nconst data = $input.first().json;\n\n// send_jid: destino real do envio WhatsApp\n// remoteJid (gravado no banco) permanece com o JID real da clínica\nconst isHomolog = $('Prepara Payload FastAPI').first().json.isHomolog || false;\nconst homologPhone = ($env.HOMOLOG_PHONE || '').replace(/\\D/g, '');\n\nconst send_jid = isHomolog && homologPhone\n  ? homologPhone + '@s.whatsapp.net'\n  : data.remoteJid;\n\nreturn [{ json: { ...data, send_jid } }];"
       },
       "id": "routing-homolog-inbound",
       "name": "Roteamento Homolog",
