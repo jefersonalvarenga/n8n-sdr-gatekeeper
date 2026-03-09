@@ -1049,7 +1049,7 @@
         ],
         [
           {
-            "node": "Supabase - Marca Opted Out",
+            "node": "Supabase - Atualiza Status",
             "type": "main",
             "index": 0
           }
