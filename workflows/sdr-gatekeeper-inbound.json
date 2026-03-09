@@ -120,7 +120,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n  COALESCE(c.id::text, '') AS id,\n  COALESCE(c.status, '') AS status,\n  COALESCE(c.message_count, 0) AS message_count,\n  COALESCE(c.fastapi_session_id, '') AS fastapi_session_id,\n  COALESCE(c.clinic_name, '') AS clinic_name,\n  COALESCE(c.remote_jid, '') AS clinic_phone,\n  COALESCE(c.paused, false) AS paused,\n  c.detected_persona,\n  c.persona_confidence,\n  c.is_homolog,\n  l.place_id,\n  l.lead_score,\n  l.ads_group\nFROM (SELECT 1) AS dummy\nLEFT JOIN gk_conversations c\n  ON (\n    (NOT {{ $json.isHomolog }} AND c.remote_jid = '{{ $json.remoteJid }}')\n    OR\n    ({{ $json.isHomolog }} = true)\n  )\nLEFT JOIN gk_leads l ON l.conversation_id = c.id\nORDER BY c.updated_at DESC NULLS LAST\nLIMIT 1;",
+        "query": "SELECT\n  COALESCE(c.id::text, '') AS id,\n  COALESCE(c.status, '') AS status,\n  COALESCE(c.message_count, 0) AS message_count,\n  COALESCE(c.fastapi_session_id, '') AS fastapi_session_id,\n  COALESCE(c.clinic_name, '') AS clinic_name,\n  COALESCE(c.remote_jid, '') AS clinic_phone,\n  COALESCE(c.paused, false) AS paused,\n  c.detected_persona,\n  c.persona_confidence,\n  c.is_homolog,\n  l.place_id,\n  l.lead_score,\n  l.ads_group\nFROM (SELECT 1) AS dummy\nLEFT JOIN gk_conversations c\n  ON (\n    (NOT {{ $json.isHomolog }} AND c.remote_jid = '{{ $json.remoteJid }}')\n    OR\n    ({{ $json.isHomolog }} = true AND c.is_homolog = true)\n  )\nLEFT JOIN gk_leads l ON l.conversation_id = c.id\nORDER BY c.updated_at DESC NULLS LAST\nLIMIT 1;",
         "options": {}
       },
       "id": "lookup-conversation",
@@ -373,6 +373,19 @@
     },
     {
       "parameters": {
+        "jsCode": "// Roteamento Homolog\n// Única responsabilidade: substituir o destino do envio WhatsApp quando em modo homolog.\n// O banco já foi gravado com os dados reais — só o destino da mensagem muda aqui.\n// Fonte de verdade: sdr_config.environment (lido pelo nó \"Supabase - Lê Config\" no início do fluxo).\n\nconst data = $('Processa Resposta FastAPI').first().json;\nconst config = $('Supabase - Lê Config').first().json;\n\n// send_jid: destino real do envio WhatsApp\n// remoteJid (gravado no banco) permanece com o JID real da clínica\nconst send_jid = config.environment === 'homolog'\n  ? (config.homolog_phone || '').replace(/\\D/g, '') + '@s.whatsapp.net'\n  : data.remoteJid;\n\nreturn [{ json: { ...data, send_jid } }];"
+      },
+      "id": "routing-homolog-inbound",
+      "name": "Roteamento Homolog",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3990,
+        440
+      ]
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "={{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE_NAME }}",
         "sendHeaders": true,
@@ -390,7 +403,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"number\": {{ JSON.stringify($('Processa Resposta FastAPI').first().json.remoteJid) }},\n  \"text\": {{ JSON.stringify($('Processa Resposta FastAPI').first().json.responseMessage) }}\n}",
+        "jsonBody": "={\n  \"number\": {{ JSON.stringify($json.send_jid) }},\n  \"text\": {{ JSON.stringify($json.responseMessage) }}\n}",
         "options": {
           "timeout": 15000
         }
@@ -400,7 +413,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3990,
+        4220,
         440
       ],
       "retryOnFail": true,
@@ -1036,7 +1049,7 @@
       "main": [
         [
           {
-            "node": "Evolution API - Envia Resposta",
+            "node": "Roteamento Homolog",
             "type": "main",
             "index": 0
           },
@@ -1059,6 +1072,17 @@
         [
           {
             "node": "Supabase - Atualiza Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Roteamento Homolog": {
+      "main": [
+        [
+          {
+            "node": "Evolution API - Envia Resposta",
             "type": "main",
             "index": 0
           }
