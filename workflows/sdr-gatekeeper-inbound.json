@@ -35,6 +35,39 @@
       "parameters": {
         "conditions": {
           "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-not-ignore",
+              "leftValue": "={{ $json.ignore }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-should-process",
+      "name": "Deve Processar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
             "caseSensitive": false,
             "leftValue": "",
             "typeValidation": "strict"
@@ -843,11 +876,23 @@
       "main": [
         [
           {
-            "node": "É Operador?",
+            "node": "Deve Processar?",
             "type": "main",
             "index": 0
           }
         ]
+      ]
+    },
+    "Deve Processar?": {
+      "main": [
+        [
+          {
+            "node": "É Operador?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
       ]
     },
     "É Reset?": {
