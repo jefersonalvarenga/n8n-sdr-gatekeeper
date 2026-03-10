@@ -895,6 +895,57 @@
         400
       ],
       "webhookId": "wait-debounce"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-is-menu-bot",
+              "leftValue": "={{ $('Merge - Contexto da Conversa').first().json.messageType }}",
+              "rightValue": "list",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "is-menu-bot",
+      "name": "É Menu Bot?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3010,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE gk_conversations\nSET\n  status = 'menu_bot',\n  detected_persona = 'menu_bot',\n  persona_confidence = 'high',\n  updated_at = NOW()\nWHERE remote_jid = '{{ $('Merge - Contexto da Conversa').first().json.remoteJid }}';"
+      },
+      "id": "supabase-mark-menu-bot",
+      "name": "Supabase - Marca Menu Bot",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        3200,
+        400
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
     }
   ],
   "connections": {
@@ -1008,7 +1059,7 @@
       "main": [
         [
           {
-            "node": "HTTP - FastAPI Gatekeeper",
+            "node": "É Menu Bot?",
             "type": "main",
             "index": 0
           }
@@ -1271,6 +1322,24 @@
         [
           {
             "node": "Prepara Payload FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É Menu Bot?": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Marca Menu Bot",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP - FastAPI Gatekeeper",
             "type": "main",
             "index": 0
           }
