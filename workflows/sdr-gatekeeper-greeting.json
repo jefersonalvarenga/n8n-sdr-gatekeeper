@@ -688,28 +688,6 @@
         ]
       ]
     },
-    "FastAPI - Extrai Nome Curto": {
-      "main": [
-        [
-          {
-            "node": "FastAPI - Gera Greeting",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "FastAPI - Gera Greeting": {
-      "main": [
-        [
-          {
-            "node": "Seleciona Template",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Seleciona Template": {
       "main": [
         [
