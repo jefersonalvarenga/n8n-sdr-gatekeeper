@@ -303,7 +303,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ============================================\n// Extrai mensagem gerada pela SDR Iris (FastAPI)\n// Calcula delay aleatório para cadência humanizada\n// remote_jid sempre usa o telefone REAL da clínica.\n// O redirecionamento para homolog é feito no nó 'Roteamento Homolog'.\n// ============================================\n\nconst lead = $('Lead Inserido?').first().json;\nconst fastapi = $input.first().json;\nconst config = $('Atingiu Cap?').first().json;\n\n// Nome curto extraído pela LLM (fallback: nome original do CRM)\nconst shortName = $('FastAPI - Extrai Nome Curto').first().json.short_name || lead.clinic_name;\n\n// Mensagem gerada pela SDR Iris via FastAPI\nconst message = fastapi.response_message;\n\n// Sem mensagem: para execução silenciosamente\nif (!message) {\n  return [];\n}\n\n// Delay aleatório entre min e max (fallback seguro se config não disponível)\nconst minDelay = config?.minDelayS ?? 30;\nconst maxDelay = config?.maxDelayS ?? 60;\nconst delayS = minDelay + Math.floor(Math.random() * Math.max(1, maxDelay - minDelay));\n\n// remote_jid: sempre o telefone real da clínica (nunca o TEST_PHONE)\nconst remote_jid = lead.clinic_phone.replace(/\\D/g, '') + '@s.whatsapp.net';\n\nreturn [{\n  json: {\n    ...lead,\n    clinic_name: shortName,\n    remote_jid,\n    greetingMessage: message,\n    delaySec: delayS\n  }\n}];"
+        "jsCode": "// ============================================\n// Extrai mensagem gerada pela SDR Iris (FastAPI)\n// Calcula delay aleatório para cadência humanizada\n// remote_jid sempre usa o telefone REAL da clínica.\n// O redirecionamento para homolog é feito no nó 'Roteamento Homolog'.\n// ============================================\n\nconst lead = $('Lead Inserido?').first().json;\nconst fastapi = $input.first().json;\nconst config = $('Atingiu Cap?').first().json;\n\n// Nome curto extraído pela LLM (fallback: nome original do CRM)\nconst shortName = $('FastAPI - Extrai Nome Curto').first().json.short_name || lead.clinic_name;\n\n// Mensagem gerada pela SDR Iris via FastAPI\nconst message = fastapi.response_message;\n\n// Sem mensagem: para execução silenciosamente\nif (!message) {\n  return [];\n}\n\n// Delay aleatório entre min e max (fallback seguro se config não disponível)\nconst minDelay = config?.minDelayS ?? 30;\nconst maxDelay = config?.maxDelayS ?? 60;\nconst delayS = minDelay + Math.floor(Math.random() * Math.max(1, maxDelay - minDelay));\n\nconst config = $('Supabase - Lê Config').first().json;\nconst isHomolog = (config.environment || '') === 'homolog';\nconst clinicJid = lead.clinic_phone.replace(/\\D/g, '') + '@s.whatsapp.net';\nconst homologJid = (config.homolog_phone || '').replace(/\\D/g, '') + '@s.whatsapp.net';\n\n// Em homolog: salvar JID do Jeferson no banco para que o inbound faça match direto\n// O clinic_phone original fica preservado no lead (gk_leads.clinic_phone)\nconst remote_jid = isHomolog ? homologJid : clinicJid;\n\nreturn [{\n  json: {\n    ...lead,\n    clinic_name: shortName,\n    remote_jid,\n    greetingMessage: message,\n    delaySec: delayS\n  }\n}];"
       },
       "id": "select-template",
       "name": "Seleciona Template",
@@ -589,17 +589,6 @@
     }
   ],
   "connections": {
-    "Cron - Greeting 15min": {
-      "main": [
-        [
-          {
-            "node": "Supabase - Lê Config",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Horário Comercial?": {
       "main": [
         [
