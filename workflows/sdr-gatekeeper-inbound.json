@@ -880,6 +880,21 @@
           "name": "Postgres SDR Gatekeeper"
         }
       }
+    },
+    {
+      "parameters": {
+        "unit": "seconds",
+        "amount": 2
+      },
+      "id": "wait-debounce",
+      "name": "Wait - Debounce 2s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        2715,
+        400
+      ],
+      "webhookId": "wait-debounce"
     }
   ],
   "connections": {
@@ -1241,6 +1256,17 @@
       ]
     },
     "Supabase - Salva Inbound e Busca Histórico": {
+      "main": [
+        [
+          {
+            "node": "Wait - Debounce 2s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait - Debounce 2s": {
       "main": [
         [
           {
