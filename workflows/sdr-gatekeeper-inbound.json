@@ -837,7 +837,7 @@
           "conditions": [
             {
               "id": "cond-operator-takeover",
-              "leftValue": "={{ $('Parse Evolution Payload').first().json.isOperatorTakeover }}",
+              "leftValue": "={{ $json.isOperatorTakeover }}",
               "rightValue": true,
               "operator": {
                 "type": "boolean",
@@ -909,7 +909,7 @@
       "main": [
         [
           {
-            "node": "Supabase - Lê Config",
+            "node": "É Operador?",
             "type": "main",
             "index": 0
           }
@@ -939,7 +939,7 @@
       "main": [
         [
           {
-            "node": "É Operador?",
+            "node": "Resolve JID (Homolog?)",
             "type": "main",
             "index": 0
           }
@@ -1233,7 +1233,7 @@
         ],
         [
           {
-            "node": "Resolve JID (Homolog?)",
+            "node": "Supabase - Lê Config",
             "type": "main",
             "index": 0
           }
