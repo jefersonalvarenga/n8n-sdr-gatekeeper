@@ -946,6 +946,38 @@
           "name": "Postgres SDR Gatekeeper"
         }
       }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-is-paused",
+              "leftValue": "={{ $('Merge - Contexto da Conversa').first().json.paused }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "is-paused",
+      "name": "Está Pausada?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2660,
+        260
+      ]
     }
   ],
   "connections": {
@@ -1310,7 +1342,7 @@
       "main": [
         [
           {
-            "node": "Wait - Debounce 2s",
+            "node": "Está Pausada?",
             "type": "main",
             "index": 0
           }
@@ -1340,6 +1372,18 @@
         [
           {
             "node": "HTTP - FastAPI Gatekeeper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Está Pausada?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Wait - Debounce 2s",
             "type": "main",
             "index": 0
           }
