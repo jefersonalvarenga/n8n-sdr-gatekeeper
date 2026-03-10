@@ -303,7 +303,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ============================================\n// Extrai mensagem gerada pela SDR Iris (FastAPI)\n// Calcula delay aleatório para cadência humanizada\n// remote_jid sempre usa o telefone REAL da clínica.\n// O redirecionamento para homolog é feito no nó 'Roteamento Homolog'.\n// ============================================\n\nconst lead = $('Lead Inserido?').first().json;\nconst fastapi = $input.first().json;\nconst config = $('Atingiu Cap?').first().json;\n\n// Nome curto extraído pela LLM (fallback: nome original do CRM)\nconst shortName = $('FastAPI - Extrai Nome Curto').first().json.short_name || lead.clinic_name;\n\n// Mensagem gerada pela SDR Iris via FastAPI\nconst message = fastapi.response_message;\n\n// Sem mensagem: para execução silenciosamente\nif (!message) {\n  return [];\n}\n\n// Delay aleatório entre min e max (fallback seguro se config não disponível)\nconst minDelay = config?.minDelayS ?? 30;\nconst maxDelay = config?.maxDelayS ?? 60;\nconst delayS = minDelay + Math.floor(Math.random() * Math.max(1, maxDelay - minDelay));\n\nconst sdrConfig = $('Supabase - Lê Config').first().json;\nconst isHomolog = (sdrConfig.environment || '') === 'homolog';\nconst clinicJid = lead.clinic_phone.replace(/\\D/g, '') + '@s.whatsapp.net';\nconst homologJid = (sdrConfig.homolog_phone || '').replace(/\\D/g, '') + '@s.whatsapp.net';\n\n// Em homolog: salvar JID do Jeferson no banco para que o inbound faça match direto\n// O clinic_phone original fica preservado no lead (gk_leads.clinic_phone)\nconst remote_jid = isHomolog ? homologJid : clinicJid;\n\nreturn [{\n  json: {\n    ...lead,\n    clinic_name: shortName,\n    remote_jid,\n    greetingMessage: message,\n    delaySec: delayS\n  }\n}];"
+        "jsCode": "// ============================================\n// Monta mensagem de abertura deterministicamente\n// Economiza 2 calls ao FastAPI por lead\n// ============================================\n\nconst lead = $('Lead Inserido?').first().json;\nconst config = $('Atingiu Cap?').first().json;\nconst sdrConfig = $('Supabase - Lê Config').first().json;\n\n// Saudação por horário (America/Sao_Paulo)\nconst hour = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })).getHours();\nconst saudacao = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';\n\n// Mensagem fixa — não menciona nome da clínica na abertura para evitar estranhamento\n// (ex: \"responsável da Dra Regina Silva\" soa errado)\nconst message = `${saudacao}, tudo bem? Queria falar com o responsável pela clínica.`;\n\n// Delay aleatório entre min e max\nconst minDelay = config?.minDelayS ?? 30;\nconst maxDelay = config?.maxDelayS ?? 60;\nconst delayS = minDelay + Math.floor(Math.random() * Math.max(1, maxDelay - minDelay));\n\nconst isHomolog = (sdrConfig.environment || '') === 'homolog';\nconst clinicJid = lead.clinic_phone.replace(/\\D/g, '') + '@s.whatsapp.net';\nconst homologJid = (sdrConfig.homolog_phone || '').replace(/\\D/g, '') + '@s.whatsapp.net';\nconst remote_jid = isHomolog ? homologJid : clinicJid;\n\nreturn [{\n  json: {\n    ...lead,\n    clinic_name: lead.clinic_name,\n    remote_jid,\n    greetingMessage: message,\n    delaySec: delayS\n  }\n}];"
       },
       "id": "select-template",
       "name": "Seleciona Template",
@@ -681,7 +681,7 @@
       "main": [
         [
           {
-            "node": "FastAPI - Extrai Nome Curto",
+            "node": "Seleciona Template",
             "type": "main",
             "index": 0
           }
