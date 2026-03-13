@@ -978,6 +978,60 @@
         2660,
         260
       ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-messages-set",
+              "leftValue": "={{ $json.body.event }}",
+              "rightValue": "MESSAGES_SET",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-messages-set",
+      "name": "É MESSAGES_SET?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        480,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE sf_clinics\nSET onboarding_status = 'sync_complete', onboarding_step = 3\nWHERE evolution_instance_id = '{{ $json.body.instance }}'\nAND onboarding_status = 'pending'",
+        "options": {}
+      },
+      "id": "sync-onboarding-messages-set",
+      "name": "Supabase - Sync Onboarding (MESSAGES_SET)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        700,
+        500
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      },
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
@@ -985,7 +1039,7 @@
       "main": [
         [
           {
-            "node": "Parse Evolution Payload",
+            "node": "É MESSAGES_SET?",
             "type": "main",
             "index": 0
           }
@@ -1388,6 +1442,29 @@
             "index": 0
           }
         ]
+      ]
+    },
+    "É MESSAGES_SET?": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Sync Onboarding (MESSAGES_SET)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse Evolution Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Sync Onboarding (MESSAGES_SET)": {
+      "main": [
+        []
       ]
     }
   },
