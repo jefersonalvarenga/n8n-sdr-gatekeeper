@@ -191,7 +191,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://ade.easyscale.co/v1/sdr/gatekeeper",
+        "url": "https://ade.easyscale.co/v1/sdr/ver",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
