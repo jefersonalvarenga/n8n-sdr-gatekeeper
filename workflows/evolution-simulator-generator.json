@@ -1,0 +1,133 @@
+{
+  "name": "Evolution Simulator - Fixture Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "evolution-simulator-generator",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook - Generate Fixture",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "evolution-simulator-generator"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Validate payload and build Anthropic request\n// ============================================\n// Expected input body:\n// {\n//   slug: \"estetica-madura\",\n//   label: \"Clínica Estética — madura (150 msgs)\",\n//   description: \"Fluxo estabelecido, mix agendado/ghosting/objeção/escalada\",\n//   count: 150,\n//   profile: {\n//     name: \"Clínica Vida Plena\",\n//     specialties: [...],\n//     pricing: {...},\n//     hours: \"...\",\n//     location: \"...\"\n//   },\n//   created_by?: \"dev@easyscale.co\"\n// }\n\nconst body = $input.first().json.body || {};\n\nconst required = ['slug', 'label', 'profile'];\nfor (const field of required) {\n  if (!body[field]) {\n    throw new Error(`Missing required field: ${field}`);\n  }\n}\n\nconst slug = String(body.slug).trim();\nif (!/^[a-z0-9-]+$/.test(slug)) {\n  throw new Error(`Invalid slug '${slug}'. Use lowercase letters, numbers, hyphens only.`);\n}\n\nconst count = Math.min(Math.max(parseInt(body.count) || 100, 10), 500);\nconst profile = body.profile;\nconst profileJson = JSON.stringify(profile, null, 2);\n\nconst systemPrompt = `Você é um gerador de conversas WhatsApp realistas entre pacientes e atendentes de clínicas de estética/medicina.\n\nPERFIL DA CLÍNICA (use estes dados ao gerar):\n${profileJson}\n\nDISTRIBUIÇÃO DE OUTCOMES (proporcional ao total solicitado):\n- agendado (40%): paciente confirma consulta/avaliação com data e hora\n- ghosting (30%): paciente some sem responder — última mensagem É DO PACIENTE, atendente não recebe resposta\n- objecao_ativa (20%): questiona preço, compara com concorrente, diz \"vou pensar\" ou \"tá caro\"\n- escalada_humana (10%): quer falar com médico, com o financeiro ou pede orçamento formal\n\nVARIAÇÃO DE ABERTURAS DO PACIENTE (distribuir uniformemente):\n- Veio de anúncio no Instagram\n- Veio de Reels ou Story\n- Pergunta direta de preço\n- Pedido de antes/depois\n- Indicação de amiga\n- Comparação com concorrente\n\nVARIAÇÃO DE ABORDAGEM DA ATENDENTE (distribuir uniformemente entre conversas):\n- Tipo A convite_avaliacao: convida para avaliação gratuita antes de falar preço\n- Tipo B preco_direto: responde preço logo, menciona parcelamento/PIX e depois convida\n- Tipo C antes_depois: menciona resultados/fotos primeiro e depois convida\n- Tipo D rapport_primeiro: pergunta o que incomoda, cria conexão e depois convida\n\nREGRAS DE REALISMO — OBRIGATÓRIAS:\n- Datas em março ou abril de 2026\n- Nomes de pacientes variados e brasileiros (femininos e masculinos)\n- Cada conversa: mínimo 4, máximo 20 mensagens\n- Conversas \"agendado\" DEVEM terminar com data e hora confirmada pela atendente\n- Conversas \"ghosting\": última mensagem deve ser do paciente (fromMe=false)\n- Quando atendente menciona preço, SEMPRE inclui parcelamento OU desconto PIX\n- Linguagem informal, PT-BR real: abreviações (vc, tb, tô, né), erros leves ocasionais\n- Mensagens curtas em rajadas (2-3 mensagens seguidas do mesmo remetente) são comuns\n\nFORMATO DE SAÍDA — JSON ESTRITO:\nRetorne APENAS um array JSON válido, sem markdown, sem comentários, sem texto antes/depois.\nCada elemento é uma mensagem individual na ordem cronológica:\n\n[\n  {\n    \"remoteJid\": \"5511988887777@s.whatsapp.net\",\n    \"fromMe\": false,\n    \"pushName\": \"Maria Silva\",\n    \"body\": \"Oi, vi o anúncio do botox no insta\",\n    \"messageType\": \"conversation\",\n    \"timestamp\": 1776800000\n  },\n  {\n    \"remoteJid\": \"5511988887777@s.whatsapp.net\",\n    \"fromMe\": true,\n    \"pushName\": null,\n    \"body\": \"Oi Maria! Que ótimo que chegou até a gente...\",\n    \"messageType\": \"conversation\",\n    \"timestamp\": 1776800120\n  }\n]\n\nREGRAS DO FORMATO:\n- remoteJid: sempre \"{ddd+numero}@s.whatsapp.net\" (contato individual, nunca grupo)\n- Cada conversa distinta usa um remoteJid único\n- fromMe=false = mensagem do paciente; fromMe=true = mensagem da atendente\n- pushName: nome do paciente quando fromMe=false; null quando fromMe=true\n- messageType: sempre \"conversation\" (texto simples)\n- timestamp: unix seconds, progressão realista entre mensagens (segundos a horas)\n- Entre conversas diferentes, timestamps podem saltar dias\n- Todas as mensagens de todas as conversas vêm num único array achatado, agrupadas por conversa`;\n\nconst userPrompt = `Gere aproximadamente ${count} mensagens total, distribuídas entre múltiplas conversas independentes (cada conversa com remoteJid único). Respeite a distribuição de outcomes. Retorne APENAS o array JSON.`;\n\nreturn [{\n  json: {\n    slug,\n    label: String(body.label),\n    description: body.description ? String(body.description) : null,\n    profile,\n    created_by: body.created_by ? String(body.created_by) : 'n8n-simulator',\n    count,\n    anthropicPayload: {\n      model: 'claude-haiku-4-5-20251001',\n      max_tokens: 16000,\n      system: systemPrompt,\n      messages: [{ role: 'user', content: userPrompt }]\n    }\n  }\n}];"
+      },
+      "id": "build-prompt",
+      "name": "Build Anthropic Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.anthropicPayload) }}",
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "call-anthropic",
+      "name": "Anthropic - Generate Messages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [710, 300],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Parse Anthropic response → messages array\n// ============================================\n// Also produces SQL-safe pre-escaped strings for the Postgres node.\n// Pattern: single-quote escape for text literals ('' for '),\n// then the query wraps them in single quotes directly.\n\nconst response = $input.first().json;\nconst meta = $('Build Anthropic Prompt').first().json;\n\nif (!response.content || !Array.isArray(response.content) || response.content.length === 0) {\n  throw new Error('Anthropic response missing content: ' + JSON.stringify(response).slice(0, 500));\n}\n\nconst rawText = response.content[0].text || '';\n\n// Strip markdown code fences if the model added them despite instructions\nlet jsonText = rawText.trim();\nconst fenceMatch = jsonText.match(/^```(?:json)?\\s*([\\s\\S]*?)\\s*```$/);\nif (fenceMatch) {\n  jsonText = fenceMatch[1].trim();\n}\n\nlet messages;\ntry {\n  messages = JSON.parse(jsonText);\n} catch (err) {\n  throw new Error(`Failed to parse Anthropic JSON: ${err.message}. Raw (first 500 chars): ${jsonText.slice(0, 500)}`);\n}\n\nif (!Array.isArray(messages)) {\n  throw new Error('Parsed response is not an array');\n}\n\nif (messages.length < 4) {\n  throw new Error(`Too few messages generated: ${messages.length} (min 4)`);\n}\n\n// Validate each message has required fields\nconst required = ['remoteJid', 'fromMe', 'body', 'messageType', 'timestamp'];\nfor (let i = 0; i < messages.length; i++) {\n  const msg = messages[i];\n  for (const field of required) {\n    if (!(field in msg)) {\n      throw new Error(`Message #${i} missing field '${field}': ${JSON.stringify(msg).slice(0, 200)}`);\n    }\n  }\n}\n\n// Helper: escape single quotes for Postgres string literals\nconst sqlEscape = (s) => String(s).replace(/'/g, \"''\");\n\nconst profileJson = JSON.stringify(meta.profile);\nconst messagesJson = JSON.stringify(messages);\n\nreturn [{\n  json: {\n    slug: meta.slug,\n    label: meta.label,\n    description: meta.description,\n    profile: meta.profile,\n    messages,\n    created_by: meta.created_by,\n    message_count: messages.length,\n    usage: response.usage || null,\n    // SQL-escaped values for the Postgres node\n    sql: {\n      slug: sqlEscape(meta.slug),\n      label: sqlEscape(meta.label),\n      description: meta.description === null || meta.description === undefined ? null : sqlEscape(meta.description),\n      profile: sqlEscape(profileJson),\n      messages: sqlEscape(messagesJson),\n      created_by: sqlEscape(meta.created_by)\n    }\n  }\n}];"
+      },
+      "id": "parse-messages",
+      "name": "Parse & Validate Messages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO dev_synthetic_fixtures (slug, label, description, profile, messages, created_by)\nVALUES (\n  '{{ $json.sql.slug }}',\n  '{{ $json.sql.label }}',\n  {{ $json.sql.description === null ? 'NULL' : \"'\" + $json.sql.description + \"'\" }},\n  '{{ $json.sql.profile }}'::jsonb,\n  '{{ $json.sql.messages }}'::jsonb,\n  '{{ $json.sql.created_by }}'\n)\nON CONFLICT (slug) DO UPDATE SET\n  label = EXCLUDED.label,\n  description = EXCLUDED.description,\n  profile = EXCLUDED.profile,\n  messages = EXCLUDED.messages,\n  created_by = EXCLUDED.created_by,\n  updated_at = now()\nRETURNING id, slug, message_count, created_at, updated_at;",
+        "options": {}
+      },
+      "id": "upsert-fixture",
+      "name": "Supabase - Upsert Fixture",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1170, 300],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, fixture: $json, usage: $('Parse & Validate Messages').first().json.usage }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-success",
+      "name": "Respond - Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1400, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - Generate Fixture": {
+      "main": [[{ "node": "Build Anthropic Prompt", "type": "main", "index": 0 }]]
+    },
+    "Build Anthropic Prompt": {
+      "main": [[{ "node": "Anthropic - Generate Messages", "type": "main", "index": 0 }]]
+    },
+    "Anthropic - Generate Messages": {
+      "main": [[{ "node": "Parse & Validate Messages", "type": "main", "index": 0 }]]
+    },
+    "Parse & Validate Messages": {
+      "main": [[{ "node": "Supabase - Upsert Fixture", "type": "main", "index": 0 }]]
+    },
+    "Supabase - Upsert Fixture": {
+      "main": [[{ "node": "Respond - Success", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
