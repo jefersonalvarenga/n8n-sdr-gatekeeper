@@ -80,7 +80,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO dev_synthetic_fixtures (slug, label, description, profile, messages, created_by)\nVALUES (\n  '{{ $json.sql.slug }}',\n  '{{ $json.sql.label }}',\n  {{ $json.sql.description === null ? 'NULL' : \"'\" + $json.sql.description + \"'\" }},\n  '{{ $json.sql.profile }}'::jsonb,\n  '{{ $json.sql.messages }}'::jsonb,\n  '{{ $json.sql.created_by }}'\n)\nON CONFLICT (slug) DO UPDATE SET\n  label = EXCLUDED.label,\n  description = EXCLUDED.description,\n  profile = EXCLUDED.profile,\n  messages = EXCLUDED.messages,\n  created_by = EXCLUDED.created_by,\n  updated_at = now()\nRETURNING id, slug, message_count, created_at, updated_at;",
+        "query": "SELECT * FROM upsert_dev_synthetic_fixture(\n  '{{ $json.sql.slug }}',\n  '{{ $json.sql.label }}',\n  {{ $json.sql.description === null ? 'NULL' : \"'\" + $json.sql.description + \"'\" }},\n  '{{ $json.sql.profile }}'::jsonb,\n  '{{ $json.sql.messages }}'::jsonb,\n  '{{ $json.sql.created_by }}'\n);",
         "options": {}
       },
       "id": "upsert-fixture",
