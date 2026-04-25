@@ -1,0 +1,61 @@
+{
+  "name": "GLM Smoke Test",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "glm-smoke-test",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "glm-smoke-test"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.GLM_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'glm-4.7-flash', messages: [{ role: 'system', content: 'Você é um assistente que responde APENAS com array JSON válido, sem markdown, sem comentários, sem texto antes ou depois.' }, { role: 'user', content: 'Gere 2 mensagens de teste de uma conversa WhatsApp curta entre paciente e atendente de clínica de estética. Formato: [{\"from\":\"paciente\",\"text\":\"...\"},{\"from\":\"atendente\",\"text\":\"...\"}]. Retorne APENAS o array JSON.' }], temperature: 0.7, max_tokens: 500 }) }}",
+        "options": {
+          "timeout": 60000,
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "call-glm",
+      "name": "Call GLM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [710, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Call GLM", "type": "main", "index": 0 }]] },
+    "Call GLM": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}
