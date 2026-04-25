@@ -18,17 +18,17 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{ $env.GLM_API_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.GROQ_API_KEY }}" },
             { "name": "Content-Type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'glm-4.7-flash', messages: [{ role: 'system', content: 'Você é um assistente que responde APENAS com array JSON válido, sem markdown, sem comentários, sem texto antes ou depois.' }, { role: 'user', content: 'Gere 2 mensagens de teste de uma conversa WhatsApp curta entre paciente e atendente de clínica de estética. Formato: [{\"from\":\"paciente\",\"text\":\"...\"},{\"from\":\"atendente\",\"text\":\"...\"}]. Retorne APENAS o array JSON.' }], temperature: 0.7, max_tokens: 500 }) }}",
+        "jsonBody": "={{ JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'system', content: 'Você é um assistente que responde APENAS com objeto JSON válido, sem markdown, sem comentários, sem texto antes ou depois. O objeto sempre tem o formato {\"messages\":[...]}.' }, { role: 'user', content: 'Gere 2 mensagens de teste de uma conversa WhatsApp curta entre paciente e atendente de clínica de estética em PT-BR. Formato: {\"messages\":[{\"from\":\"paciente\",\"text\":\"...\"},{\"from\":\"atendente\",\"text\":\"...\"}]}. Retorne APENAS o objeto JSON.' }], temperature: 0.7, max_tokens: 500, response_format: { type: 'json_object' } }) }}",
         "options": {
           "timeout": 60000,
           "response": { "response": { "responseFormat": "json" } }
