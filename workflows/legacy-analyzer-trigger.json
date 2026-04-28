@@ -33,8 +33,29 @@
     },
     {
       "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE sf_clinics\nSET onboarding_status = 'setup_inprogress'\nWHERE id = '{{ $json.clinic_id }}'\n  AND onboarding_status = 'setup_pending';",
+        "options": {}
+      },
+      "id": "mark-setup-inprogress",
+      "name": "Supabase - setup_inprogress",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        700,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIALS_ID",
+          "name": "Postgres SDR Gatekeeper"
+        }
+      }
+    },
+    {
+      "parameters": {
         "method": "POST",
-        "url": "={{ $env.LEGACY_ANALYZER_URL }}/analyze/{{ $json.clinic_id }}",
+        "url": "={{ $env.LEGACY_ANALYZER_URL }}/analyze/{{ $node['Validate Input'].json.clinic_id }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -63,7 +84,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        700,
+        930,
         300
       ]
     },
@@ -95,7 +116,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        930,
+        1160,
         300
       ]
     },
@@ -112,7 +133,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1180,
+        1410,
         200
       ]
     },
@@ -129,7 +150,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1180,
+        1410,
         400
       ]
     }
@@ -147,6 +168,17 @@
       ]
     },
     "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Supabase - setup_inprogress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - setup_inprogress": {
       "main": [
         [
           {
