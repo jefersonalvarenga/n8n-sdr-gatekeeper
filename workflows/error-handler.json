@@ -38,7 +38,7 @@
             },
             {
               "name": "X-Sentry-Auth",
-              "value": "Sentry sentry_version=7, sentry_client=n8n/1.0, sentry_key={{ $env.GLITCHTIP_PUBLIC_KEY }}"
+              "value": "Sentry sentry_version=7,sentry_client=n8n/1.0,sentry_key=0b54fc1dba6349d9a16cc82d942aeb6c"
             }
           ]
         },
