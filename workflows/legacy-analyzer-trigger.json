@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// =====================================================================\n// Validate clinic_id — fail fast if missing/empty.\n// LA already validates clinic exists in sf_clinics (404 fallback), so we\n// only check shape here.\n// =====================================================================\nconst body = $input.first().json.body || {};\nconst clinicId = String(body.clinic_id || '').trim();\n\nif (!clinicId) {\n  throw new Error('clinic_id obrigatorio');\n}\n\nreturn [{ json: { clinic_id: clinicId } }];"
+        "jsCode": "// =====================================================================\n// Validate clinic_id — fail fast if missing/empty.\n// LA already validates clinic exists in sf_clinics (404 fallback) and\n// owns the onboarding_step transitions (learning at start, review at\n// end), so this workflow is a thin proxy: webhook → call LA → respond.\n// =====================================================================\nconst body = $input.first().json.body || {};\nconst clinicId = String(body.clinic_id || '').trim();\n\nif (!clinicId) {\n  throw new Error('clinic_id obrigatorio');\n}\n\nreturn [{ json: { clinic_id: clinicId } }];"
       },
       "id": "validate-input",
       "name": "Validate Input",
@@ -30,27 +30,6 @@
         470,
         300
       ]
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "UPDATE sf_clinics\nSET onboarding_status = 'setup_inprogress'\nWHERE id = '{{ $json.clinic_id }}'\n  AND onboarding_status = 'setup_pending';",
-        "options": {}
-      },
-      "id": "mark-setup-inprogress",
-      "name": "Supabase - setup_inprogress",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        700,
-        300
-      ],
-      "credentials": {
-        "postgres": {
-          "id": "SUPABASE_CREDENTIALS_ID",
-          "name": "Postgres SDR Gatekeeper"
-        }
-      }
     },
     {
       "parameters": {
@@ -84,7 +63,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        930,
+        700,
         300
       ]
     },
@@ -116,7 +95,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1160,
+        930,
         300
       ]
     },
@@ -133,7 +112,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1410,
+        1180,
         200
       ]
     },
@@ -150,7 +129,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1410,
+        1180,
         400
       ]
     }
@@ -168,17 +147,6 @@
       ]
     },
     "Validate Input": {
-      "main": [
-        [
-          {
-            "node": "Supabase - setup_inprogress",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Supabase - setup_inprogress": {
       "main": [
         [
           {
