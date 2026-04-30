@@ -1,0 +1,95 @@
+{
+  "name": "Error Handler — GlitchTip",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "error-trigger",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build a Sentry-compatible event payload from the n8n error.\n// The errored execution's full payload is on $input.first().json.\n//\n// We send to GlitchTip's /api/<project_id>/store/ which speaks Sentry\n// protocol (n8n native Sentry node is half-baked; HTTP node is robust).\n\nconst err = $input.first().json;\nconst execution = err.execution || {};\nconst lastNode = execution.lastNodeExecuted || 'unknown_node';\nconst workflow = err.workflow || {};\nconst errorMsg = (execution.error && execution.error.message) || 'n8n workflow error';\nconst errorStack = (execution.error && execution.error.stack) || null;\n\n// Try to surface clinic_id when present in any node's first item.\nlet clinicId = null;\ntry {\n  const runData = execution.data && execution.data.resultData && execution.data.resultData.runData;\n  if (runData) {\n    for (const nodeName of Object.keys(runData)) {\n      const runs = runData[nodeName] || [];\n      const firstItem = runs[0] && runs[0].data && runs[0].data.main && runs[0].data.main[0] && runs[0].data.main[0][0];\n      const json = firstItem && firstItem.json;\n      if (json && (json.clinic_id || (json.body && json.body.clinic_id))) {\n        clinicId = json.clinic_id || json.body.clinic_id;\n        break;\n      }\n    }\n  }\n} catch (_) {}\n\nconst event = {\n  event_id: crypto.randomUUID().replace(/-/g, ''),\n  timestamp: new Date().toISOString(),\n  platform: 'other',\n  level: 'error',\n  logger: 'n8n',\n  server_name: 'n8n.easyscale.co',\n  message: errorMsg,\n  exception: {\n    values: [\n      {\n        type: (execution.error && execution.error.name) || 'WorkflowError',\n        value: errorMsg,\n        stacktrace: errorStack ? { frames: [{ filename: 'n8n', context_line: errorStack }] } : undefined,\n      },\n    ],\n  },\n  tags: {\n    service: 'n8n',\n    workflow: workflow.name || 'unknown',\n    node: lastNode,\n    clinic_id: clinicId || 'unknown',\n  },\n  extra: {\n    workflow_id: workflow.id,\n    execution_id: execution.id,\n    execution_url: execution.url,\n  },\n};\n\nreturn [{ json: event }];"
+      },
+      "id": "build-payload",
+      "name": "Build Sentry Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        470,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.GLITCHTIP_INGEST_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Sentry-Auth",
+              "value": "Sentry sentry_version=7, sentry_client=n8n/1.0, sentry_key={{ $env.GLITCHTIP_PUBLIC_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 5000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "send-to-glitchtip",
+      "name": "POST → GlitchTip",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Build Sentry Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Sentry Event": {
+      "main": [
+        [
+          {
+            "node": "POST → GlitchTip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
